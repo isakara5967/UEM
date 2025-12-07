@@ -7,6 +7,11 @@ Güven dinamikleri:
 - Güven YAVAŞ kazanılır, HIZLI kaybedilir
 - Zaman geçtikçe nötre doğru decay
 - Negatif olaylar pozitiflerden daha etkili (negativity bias)
+
+Memory Entegrasyonu:
+- Relationship history Memory'den okunur
+- Her trust event Memory'ye kaydedilir
+- Trust score Memory ile senkronize edilir
 """
 
 from dataclasses import dataclass, field
@@ -24,6 +29,31 @@ from .types import (
     determine_trust_type,
     TRUST_EVENT_IMPACTS,
 )
+
+# Memory entegrasyonu
+from core.memory import get_memory_store, Interaction, InteractionType
+
+
+# Trust event -> InteractionType mapping
+TRUST_EVENT_TO_INTERACTION: Dict[str, InteractionType] = {
+    # Pozitif eventler
+    "helped_me": InteractionType.HELPED,
+    "promise_kept": InteractionType.COOPERATED,
+    "honest_feedback": InteractionType.CONVERSED,
+    "competent_action": InteractionType.COOPERATED,
+    "consistent_behavior": InteractionType.OBSERVED,
+    "defended_me": InteractionType.PROTECTED,
+    "shared_joy": InteractionType.CELEBRATED,
+    "comforted_me": InteractionType.COMFORTED,
+    "grateful_interaction": InteractionType.COOPERATED,
+
+    # Negatif eventler
+    "lied_to_me": InteractionType.BETRAYED,
+    "betrayal": InteractionType.BETRAYED,
+    "harmed_me": InteractionType.HARMED,
+    "unpredictable_behavior": InteractionType.CONFLICTED,
+    "incompetent_action": InteractionType.CONFLICTED,
+}
 
 
 @dataclass
@@ -117,20 +147,41 @@ class TrustConfig:
 class TrustManager:
     """
     Güven yöneticisi.
-    
+
     Birden fazla ajan için güven profillerini yönetir.
+    Memory modülü ile entegre çalışır.
     """
-    
+
     def __init__(self, config: Optional[TrustConfig] = None):
         self.config = config or TrustConfig()
         self._profiles: Dict[str, TrustProfile] = {}
+        self._memory = get_memory_store()
     
     def get_profile(self, agent_id: str) -> TrustProfile:
         """
         Ajan için güven profili getir (yoksa oluştur).
+
+        Memory'den relationship history'yi alır ve başlangıç trust değerini
+        buna göre belirler.
         """
         if agent_id not in self._profiles:
-            self._profiles[agent_id] = TrustProfile(agent_id=agent_id)
+            # Yeni profil oluştur
+            profile = TrustProfile(agent_id=agent_id)
+
+            # Memory'den relationship al ve başlangıç trust değerini hesapla
+            relationship = self._memory.get_relationship(agent_id)
+            initial_trust = relationship.get_trust_recommendation()
+
+            # Profile uygula - tüm bileşenlere aynı başlangıç değeri
+            profile.components = TrustComponents(
+                competence=initial_trust,
+                benevolence=initial_trust,
+                integrity=initial_trust,
+                predictability=initial_trust,
+            )
+
+            self._profiles[agent_id] = profile
+
         return self._profiles[agent_id]
     
     def get_trust(self, agent_id: str) -> float:
@@ -149,28 +200,30 @@ class TrustManager:
     ) -> TrustProfile:
         """
         Güven olayı kaydet ve profili güncelle.
-        
+
+        Memory'ye de interaction olarak kaydeder.
+
         Args:
             agent_id: Ajan ID
             event_type: Olay tipi (örn: "promise_kept", "betrayal")
             context: Bağlam
-            
+
         Returns:
             Güncellenmiş TrustProfile
         """
         profile = self.get_profile(agent_id)
-        
+
         # Olay oluştur
         event = create_trust_event(event_type, context)
-        
+
         # Güncelle
         self._apply_event(profile, event)
-        
+
         # Tarihçeye ekle
         profile.history.append(event)
         if len(profile.history) > self.config.max_history_size:
             profile.history = profile.history[-self.config.max_history_size:]
-        
+
         # İstatistikleri güncelle
         if event.impact > 0:
             profile.positive_events += 1
@@ -178,18 +231,36 @@ class TrustManager:
             profile.negative_events += 1
             if event_type in ["betrayal", "harmed_me"]:
                 profile.betrayal_count += 1
-        
+
         # Son etkileşim zamanını güncelle
         profile.last_interaction = datetime.now()
-        
+
         # Güven tipini yeniden belirle
         profile.trust_type = determine_trust_type(
             profile.components,
             len(profile.history),
             profile.betrayal_count > 0,
         )
-        
+
+        # Memory'ye interaction kaydet
+        interaction = Interaction(
+            interaction_type=self._map_trust_event_to_interaction(event_type),
+            context=context,
+            outcome_valence=event.impact,
+            trust_impact=event.weighted_impact(),
+        )
+        self._memory.record_interaction(agent_id, interaction)
+
+        # Memory'deki trust bilgisini senkronize et
+        relationship = self._memory.get_relationship(agent_id)
+        relationship.trust_score = profile.overall_trust
+        relationship.trust_history.append(profile.overall_trust)
+
         return profile
+
+    def _map_trust_event_to_interaction(self, event_type: str) -> InteractionType:
+        """Trust event tipini InteractionType'a dönüştür."""
+        return TRUST_EVENT_TO_INTERACTION.get(event_type, InteractionType.OBSERVED)
     
     def _apply_event(self, profile: TrustProfile, event: TrustEvent) -> None:
         """Olayı profile uygula."""
