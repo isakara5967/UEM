@@ -313,6 +313,11 @@ class SocialAffectOrchestrator:
             relationship = self._infer_relationship(agent)
         
         sympathy_result = self._compute_sympathy(empathy_result, relationship)
+        
+        # Hostile/enemy için sympathy azalt
+        if self._is_hostile(agent):
+            sympathy_result = self._apply_hostile_sympathy_modifier(sympathy_result)
+        
         result.sympathy = sympathy_result
         
         # StateVector'a yaz
@@ -320,6 +325,14 @@ class SocialAffectOrchestrator:
             self.bridge.write_sympathy(self.state_vector, sympathy_result)
         
         # 3. TRUST
+        # Hostile/enemy için düşük başlangıç trust
+        is_hostile = self._is_hostile(agent)
+        if is_hostile:
+            # İlk kez görüyorsak düşük trust ile başlat
+            current_trust = self._trust.get(agent.agent_id)
+            if current_trust == 0.5:  # Henüz etkileşim yok (default)
+                self._trust.set_initial(agent.agent_id, TrustType.DISTRUST)
+        
         result.trust_before = self._trust.get(agent.agent_id)
         
         if self.config.update_trust and sympathy_result.has_sympathy:
@@ -471,6 +484,47 @@ class SocialAffectOrchestrator:
             warnings.append("CONFLICT: High trust but antisocial feelings")
         
         return warnings
+    
+    def _is_hostile(self, agent: AgentState) -> bool:
+        """Agent'ın hostile/enemy olup olmadığını kontrol et."""
+        # Hardcoded hostile flag
+        if hasattr(agent, 'hostile') and agent.hostile:
+            return True
+        
+        # Attributes içinde hostile flag
+        if hasattr(agent, 'attributes') and agent.attributes:
+            if agent.attributes.get('hostile', False):
+                return True
+        
+        # Relationship enemy ise
+        if agent.relationship_to_self == "enemy":
+            return True
+        
+        return False
+    
+    def _apply_hostile_sympathy_modifier(
+        self, 
+        sympathy_result: SympathyResult,
+    ) -> SympathyResult:
+        """
+        Hostile agent için sympathy'yi azalt.
+        Empathy sabit kalır (onu anlıyorum), ama sempati duymam.
+        """
+        HOSTILE_SYMPATHY_MODIFIER = 0.1  # %10'a düşür
+        
+        # Intensity'leri düşür
+        for response in sympathy_result.responses:
+            response.intensity *= HOSTILE_SYMPATHY_MODIFIER
+        
+        # Total intensity güncelle
+        if sympathy_result.responses:
+            sympathy_result.total_intensity = sum(
+                r.intensity for r in sympathy_result.responses
+            ) / len(sympathy_result.responses)
+        else:
+            sympathy_result.total_intensity = 0.0
+        
+        return sympathy_result
     
     def _infer_relationship(self, agent: AgentState) -> RelationshipContext:
         """Ajan bilgisinden ilişki bağlamı çıkar."""
