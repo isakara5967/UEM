@@ -73,6 +73,13 @@ class SVField(str, Enum):
     COGNITIVE_LOAD = "cognitive_load"            # Bilişsel yük (0-1)
     ATTENTION_FOCUS = "attention_focus"          # Dikkat odağı (0-1)
     CERTAINTY = "certainty"                      # Kesinlik (0-1)
+
+    # ══════════════════════════════════════════════════════════════════
+    # MEMORY FIELDS
+    # ══════════════════════════════════════════════════════════════════
+    MEMORY_LOAD = "memory_load"                  # Ne kadar bellek yuklu? (0-1)
+    MEMORY_RELEVANCE = "memory_relevance"        # Getirilen bilgi ne kadar alakali? (0-1)
+    KNOWN_AGENT = "known_agent"                  # Agent taniniyor mu? (0-1, bool-like)
     
     # ══════════════════════════════════════════════════════════════════
     # SELF FIELDS
@@ -135,3 +142,13 @@ class SVField(str, Enum):
     def affect_fields(cls) -> list["SVField"]:
         """Tüm affect alanlarını döndür."""
         return cls.emotion_fields() + cls.social_fields()
+
+    @classmethod
+    def memory_fields(cls) -> list["SVField"]:
+        """Memory alanlarını döndür."""
+        return [cls.MEMORY_LOAD, cls.MEMORY_RELEVANCE, cls.KNOWN_AGENT]
+
+    @classmethod
+    def cognitive_fields(cls) -> list["SVField"]:
+        """Cognitive alanlarını döndür."""
+        return [cls.COGNITIVE_LOAD, cls.ATTENTION_FOCUS, cls.CERTAINTY]
