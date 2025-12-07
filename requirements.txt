@@ -1,0 +1,17 @@
+# UEM v2 Dependencies
+
+# Core - Built-in Python, no external deps needed for basic functionality
+
+# Future - when needed:
+# pyyaml>=6.0        # Config files
+# psycopg2>=2.9      # PostgreSQL
+# rich>=13.0         # Better CLI output
+# fastapi>=0.100     # API
+# uvicorn>=0.22      # ASGI server
+
+# Development
+# pytest>=7.0
+# pytest-cov>=4.0
+# black>=23.0
+# mypy>=1.0
+# ruff>=0.1.0
