@@ -4,6 +4,11 @@ UEM v2 - Social Affect Orchestrator (StateVector Integrated)
 Empathy, Sympathy ve Trust modüllerini entegre eden orkestratör.
 StateVector ile tam entegrasyon - sonuçlar otomatik olarak yazılır.
 
+Memory Entegrasyonu:
+- Her etkileşim Episode olarak Memory'ye kaydedilir
+- Relationship context Memory'den okunur
+- Trust hesabında Memory'deki geçmiş kullanılır
+
 Akış:
     StateVector (okuma)
            ↓
@@ -22,19 +27,23 @@ Akış:
     │    (Update)     │  → TrustProfile → StateVector
     └────────┬────────┘
              ↓
+    ┌─────────────────┐
+    │     MEMORY      │  Episode kaydet
+    └────────┬────────┘
+             ↓
     StateVector (yazma) + SocialAffectResult
 
 Kullanım:
     from foundation.state import StateVector
     from core.affect.social import SocialAffectOrchestrator
-    
+
     # StateVector ile başlat
     state = StateVector(resource=0.8, threat=0.1, wellbeing=0.7)
     orchestrator = SocialAffectOrchestrator.from_state_vector(state)
-    
+
     # İşle - sonuçlar otomatik StateVector'a yazılır
     result = orchestrator.process(agent_state)
-    
+
     # StateVector güncellendi
     print(state.get(SVField.EMPATHY_TOTAL))  # Empati değeri
     print(state.get(SVField.TRUST_VALUE))    # Güven değeri
@@ -49,6 +58,9 @@ sys.path.insert(0, '.')
 
 from foundation.state import StateVector, SVField, StateVectorBridge, get_state_bridge
 from core.affect.emotion.core import PADState, BasicEmotion
+
+# Memory entegrasyonu
+from core.memory import get_memory_store, Episode, EpisodeType
 
 from core.affect.social.empathy import (
     Empathy,
@@ -228,12 +240,15 @@ class SocialAffectOrchestrator:
         self.config = config or OrchestratorConfig()
         self.state_vector = state_vector
         self.bridge = bridge or get_state_bridge()
-        
+
         # Modülleri oluştur
         self._empathy = Empathy(self_state, self.config.empathy_config)
         self._sympathy = Sympathy(self_state, self.config.sympathy_config)
         self._trust = Trust(self.config.trust_config)
-        
+
+        # Memory entegrasyonu
+        self._memory = get_memory_store()
+
         # İstatistikler
         self._process_count = 0
         self._total_time_ms = 0.0
@@ -369,13 +384,16 @@ class SocialAffectOrchestrator:
         result.warnings = self._generate_warnings(
             empathy_result, sympathy_result, result.trust_level
         )
-        
+
+        # 7. Episode kaydet (Memory entegrasyonu)
+        self._store_interaction_episode(agent, result)
+
         # Meta
         result.processing_time_ms = (time.perf_counter() - start_time) * 1000
-        
+
         self._process_count += 1
         self._total_time_ms += result.processing_time_ms
-        
+
         return result
     
     def _compute_empathy(
@@ -527,10 +545,18 @@ class SocialAffectOrchestrator:
         return sympathy_result
     
     def _infer_relationship(self, agent: AgentState) -> RelationshipContext:
-        """Ajan bilgisinden ilişki bağlamı çıkar."""
-        rel_type = agent.relationship_to_self
-        
-        if rel_type == "friend":
+        """
+        Ajan bilgisinden ilişki bağlamı çıkar.
+
+        Memory'den relationship record alır ve buna göre context oluşturur.
+        """
+        # Memory'den relationship record al
+        relationship = self._memory.get_relationship(agent.agent_id)
+
+        # Relationship type'a göre context oluştur
+        rel_type = relationship.relationship_type.value
+
+        if rel_type == "friend" or rel_type == "close_friend":
             return RelationshipContext.friend()
         elif rel_type == "family":
             return RelationshipContext(valence=0.8, positive_history=0.9)
@@ -541,7 +567,87 @@ class SocialAffectOrchestrator:
         elif rel_type == "enemy":
             return RelationshipContext(valence=-0.7, negative_history=0.8)
         else:
+            # Memory'deki sentiment'a göre context oluştur
+            if relationship.total_interactions > 0:
+                valence = relationship.overall_sentiment
+                pos_ratio = relationship.positive_interactions / relationship.total_interactions
+                return RelationshipContext(
+                    valence=valence,
+                    positive_history=pos_ratio,
+                    negative_history=1 - pos_ratio,
+                )
+            # Agent'ın kendi bildirdiği relationship'e bak
+            agent_rel_type = agent.relationship_to_self
+            if agent_rel_type == "friend":
+                return RelationshipContext.friend()
+            elif agent_rel_type == "rival":
+                return RelationshipContext.rival()
+            elif agent_rel_type == "enemy":
+                return RelationshipContext(valence=-0.7, negative_history=0.8)
             return RelationshipContext.stranger()
+
+    def _store_interaction_episode(
+        self,
+        agent: AgentState,
+        result: SocialAffectResult,
+    ) -> None:
+        """
+        Etkileşimi episode olarak Memory'ye kaydet.
+
+        Bu kayıt ileride:
+        - Benzer durumları hatırlamak için
+        - Relationship context oluşturmak için
+        - Trust hesaplamak için kullanılacak
+        """
+        # Outcome valence hesapla - action'a göre
+        outcome_valence = 0.0
+        if result.suggested_action in ["help", "comfort", "support"]:
+            outcome_valence = 0.5
+        elif result.suggested_action in ["avoid", "withdraw"]:
+            outcome_valence = -0.3
+        elif result.suggested_action == "observe":
+            outcome_valence = 0.0
+
+        # Episode oluştur
+        episode = Episode(
+            what=f"Interaction with {agent.agent_id}",
+            who=[agent.agent_id],
+            episode_type=EpisodeType.INTERACTION,
+
+            outcome=result.suggested_action,
+            outcome_valence=outcome_valence,
+
+            # Empathy'den duygu bilgisi
+            self_emotion_during=(
+                result.empathy.get_inferred_emotion().value
+                if result.empathy else None
+            ),
+
+            # Sympathy'den duygusal valence
+            emotional_valence=(
+                result.sympathy.total_intensity
+                if result.sympathy else 0.0
+            ),
+
+            # Importance - empathy ve trust'a göre
+            importance=(
+                result.empathy.total_empathy * 0.5 + abs(result.trust_delta) * 0.5
+                if result.empathy else 0.5
+            ),
+
+            # PAD state
+            pad_state=(
+                {
+                    "pleasure": result.self_pad_after.pleasure,
+                    "arousal": result.self_pad_after.arousal,
+                    "dominance": result.self_pad_after.dominance,
+                }
+                if result.self_pad_after else None
+            ),
+        )
+
+        # Memory'ye kaydet
+        self._memory.store_episode(episode)
     
     # ═══════════════════════════════════════════════════════════════════
     # BATCH & CONVENIENCE
