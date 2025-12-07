@@ -2,6 +2,9 @@
 UEM v2 - Cognitive Cycle
 
 Ana işlem döngüsü - 10 faz sırayla çalışır.
+
+BUG FIX: Phase results artık context.metadata'ya da ekleniyor,
+böylece DECIDE handler orchestrator suggestion'a erişebiliyor.
 """
 
 from dataclasses import dataclass, field
@@ -142,6 +145,12 @@ class CognitiveCycle:
             metadata={"stimulus": stimulus} if stimulus else {},
         )
         
+        # ═══════════════════════════════════════════════════════════════
+        # BUG FIX: phase_results için container oluştur
+        # DECIDE handler buradan okuyacak
+        # ═══════════════════════════════════════════════════════════════
+        context.metadata["phase_results"] = {}
+        
         # Cycle başlangıç eventi
         if self.config.emit_events:
             self.event_bus.emit(
@@ -180,7 +189,11 @@ class CognitiveCycle:
                 context,
             )
             
+            # ═══════════════════════════════════════════════════════════
+            # BUG FIX: Result'ı HEM cycle_state'e HEM context'e yaz
+            # ═══════════════════════════════════════════════════════════
             cycle_state.phase_results[phase_config.phase] = result
+            context.metadata["phase_results"][phase_config.phase] = result
             
             # Faz bitiş eventi
             if self.config.emit_events:
