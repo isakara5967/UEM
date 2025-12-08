@@ -465,3 +465,87 @@ class TrustHistoryModel(Base):
             "event_type": self.event_type,
             "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
         }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CYCLE METRICS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CycleMetricModel(Base):
+    """
+    Cycle metrics - monitoring dashboard için.
+    """
+    __tablename__ = "cycle_metrics"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    cycle_id = Column(Integer, nullable=False)
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    ended_at = Column(DateTime(timezone=True))
+    duration_ms = Column(Float)
+
+    # Status
+    success = Column(Boolean, default=True)
+    error_message = Column(Text)
+
+    # Phase durations
+    phase_durations = Column(JSONB, default={})
+
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+    __table_args__ = (
+        Index("idx_cycle_metrics_started", started_at.desc()),
+        Index("idx_cycle_metrics_cycle_id", cycle_id),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "cycle_id": self.cycle_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "duration_ms": self.duration_ms,
+            "success": self.success,
+            "error_message": self.error_message,
+            "phase_durations": self.phase_durations or {},
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACTIVITY LOG
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ActivityLogModel(Base):
+    """
+    Activity log - dashboard için event logları.
+    """
+    __tablename__ = "activity_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    event_type = Column(Text, nullable=False)
+    source = Column(Text)
+    cycle_id = Column(Integer)
+
+    data = Column(JSONB, default={})
+
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+    __table_args__ = (
+        Index("idx_activity_log_created", created_at.desc()),
+        Index("idx_activity_log_event_type", event_type),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "event_type": self.event_type,
+            "source": self.source,
+            "cycle_id": self.cycle_id,
+            "data": self.data or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
