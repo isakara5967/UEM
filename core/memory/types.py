@@ -24,6 +24,7 @@ class MemoryType(str, Enum):
     SEMANTIC = "semantic"
     EMOTIONAL = "emotional"
     RELATIONSHIP = "relationship"
+    CONVERSATION = "conversation"
 
 
 class EmotionalValence(str, Enum):
@@ -501,3 +502,141 @@ class RetrievalResult:
 
     query_time_ms: float = 0.0
     total_matches: int = 0
+
+
+# ========================================================================
+# CONVERSATION MEMORY
+# ========================================================================
+
+@dataclass
+class DialogueTurn:
+    """
+    Tek bir diyalog turu - kullanici veya ajan mesaji.
+    Sohbet gecmisinin temel birimi.
+    """
+
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    conversation_id: str = ""           # Ait oldugu sohbet oturumu
+
+    role: str = "user"                  # "user" | "agent" | "system"
+    content: str = ""                   # Mesaj icerigi
+
+    timestamp: datetime = field(default_factory=datetime.now)
+
+    # Duygusal analiz
+    emotional_valence: float = 0.0      # -1 to 1
+    emotional_arousal: float = 0.0      # 0 to 1
+    detected_emotion: Optional[str] = None  # joy, sadness, anger, etc.
+
+    # Intent ve topic
+    intent: Optional[str] = None        # question, statement, request, etc.
+    topics: List[str] = field(default_factory=list)
+
+    # Opsiyonel embedding (semantic search icin)
+    embedding: Optional[List[float]] = None
+
+    # Meta
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Conversation(MemoryItem):
+    """
+    Sohbet oturumu - DialogueTurn'lerin koleksiyonu.
+    Episodik bellek ile entegre calisir.
+    """
+    memory_type: MemoryType = MemoryType.CONVERSATION
+
+    # Oturum bilgileri
+    session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: Optional[str] = None       # Kullanici ID (varsa)
+    agent_id: str = ""                  # Ajan ID
+
+    # Zaman bilgisi
+    started_at: datetime = field(default_factory=datetime.now)
+    ended_at: Optional[datetime] = None
+    is_active: bool = True
+
+    # Diyalog turleri
+    turns: List[DialogueTurn] = field(default_factory=list)
+    turn_count: int = 0
+
+    # Ozet bilgiler
+    summary: str = ""                   # Sohbet ozeti
+    main_topics: List[str] = field(default_factory=list)
+    resolved_intents: List[str] = field(default_factory=list)
+
+    # Duygusal akis
+    emotional_arc: List[float] = field(default_factory=list)  # Valence degisimi
+    dominant_emotion: Optional[str] = None
+    average_valence: float = 0.0
+
+    # Iliskili episode (varsa)
+    episode_id: Optional[str] = None
+
+    # Sohbet kalitesi
+    coherence_score: float = 1.0        # 0-1, sohbet tutarliligi
+    engagement_score: float = 0.5       # 0-1, kullanici katilimi
+
+    def add_turn(self, turn: DialogueTurn) -> None:
+        """Diyalog turu ekle."""
+        turn.conversation_id = self.session_id
+        self.turns.append(turn)
+        self.turn_count += 1
+        self.last_accessed = datetime.now()
+
+        # Duygusal arc guncelle
+        self.emotional_arc.append(turn.emotional_valence)
+        self._update_emotional_stats()
+
+        # Topic guncelle
+        for topic in turn.topics:
+            if topic not in self.main_topics:
+                self.main_topics.append(topic)
+
+    def _update_emotional_stats(self) -> None:
+        """Duygusal istatistikleri guncelle."""
+        if not self.emotional_arc:
+            return
+
+        self.average_valence = sum(self.emotional_arc) / len(self.emotional_arc)
+
+    def get_last_n_turns(self, n: int = 5) -> List[DialogueTurn]:
+        """Son n turu getir."""
+        return self.turns[-n:] if self.turns else []
+
+    def get_context_window(self, max_tokens: int = 2000) -> List[DialogueTurn]:
+        """
+        Token limitine uygun context penceresi getir.
+        Basit karakter tahmini kullanir (4 char ~= 1 token).
+        """
+        result = []
+        total_chars = 0
+        char_limit = max_tokens * 4
+
+        for turn in reversed(self.turns):
+            turn_chars = len(turn.content)
+            if total_chars + turn_chars > char_limit:
+                break
+            result.insert(0, turn)
+            total_chars += turn_chars
+
+        return result
+
+    def end_conversation(self) -> None:
+        """Sohbeti sonlandir."""
+        self.is_active = False
+        self.ended_at = datetime.now()
+
+    def get_duration_seconds(self) -> float:
+        """Sohbet suresini saniye olarak getir."""
+        end = self.ended_at or datetime.now()
+        return (end - self.started_at).total_seconds()
+
+    def to_text(self) -> str:
+        """Sohbeti metin olarak formatla."""
+        lines = []
+        for turn in self.turns:
+            role_label = "User" if turn.role == "user" else "Agent"
+            lines.append(f"[{role_label}]: {turn.content}")
+        return "\n".join(lines)

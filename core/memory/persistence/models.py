@@ -35,6 +35,7 @@ class MemoryTypeEnum(str, enum.Enum):
     semantic = "semantic"
     emotional = "emotional"
     relationship = "relationship"
+    conversation = "conversation"
 
 
 class RelationshipTypeEnum(str, enum.Enum):
@@ -548,4 +549,162 @@ class ActivityLogModel(Base):
             "cycle_id": self.cycle_id,
             "data": self.data or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CONVERSATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ConversationModel(Base):
+    """
+    Conversation memory - sohbet oturumu.
+    """
+    __tablename__ = "conversations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Session info
+    session_id = Column(UUID(as_uuid=True), nullable=False, unique=True, default=uuid4)
+    user_id = Column(Text)
+    agent_id = Column(Text, nullable=False, default="default")
+
+    # Timing
+    started_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
+    ended_at = Column(DateTime(timezone=True))
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Summary
+    turn_count = Column(Integer, default=0)
+    summary = Column(Text)
+    main_topics = Column(ARRAY(Text), default=[])
+    resolved_intents = Column(ARRAY(Text), default=[])
+
+    # Emotional arc
+    emotional_arc = Column(ARRAY(Float), default=[])
+    dominant_emotion = Column(Text)
+    average_valence = Column(Float, default=0)
+
+    # Related episode
+    episode_id = Column(UUID(as_uuid=True), ForeignKey("episodes.id", ondelete="SET NULL"))
+
+    # Quality metrics
+    coherence_score = Column(Float, default=1.0)
+    engagement_score = Column(Float, default=0.5)
+
+    # Memory metadata
+    strength = Column(Float, default=1.0)
+    importance = Column(Float, default=0.5)
+    access_count = Column(Integer, default=0)
+    last_accessed = Column(DateTime(timezone=True), default=func.now())
+
+    # Meta
+    tags = Column(ARRAY(Text), default=[])
+    context = Column(JSONB, default={})
+
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+
+    # Relationships
+    turns = relationship("DialogueTurnModel", back_populates="conversation", cascade="all, delete-orphan")
+    episode = relationship("EpisodeModel")
+
+    __table_args__ = (
+        CheckConstraint("coherence_score >= 0 AND coherence_score <= 1"),
+        CheckConstraint("engagement_score >= 0 AND engagement_score <= 1"),
+        CheckConstraint("strength >= 0 AND strength <= 1"),
+        CheckConstraint("importance >= 0 AND importance <= 1"),
+        Index("idx_conversations_session_id", session_id),
+        Index("idx_conversations_user_id", user_id),
+        Index("idx_conversations_started_at", started_at.desc()),
+        Index("idx_conversations_is_active", is_active),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "session_id": str(self.session_id),
+            "user_id": self.user_id,
+            "agent_id": self.agent_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "is_active": self.is_active,
+            "turn_count": self.turn_count,
+            "summary": self.summary,
+            "main_topics": self.main_topics or [],
+            "average_valence": self.average_valence,
+            "coherence_score": self.coherence_score,
+            "engagement_score": self.engagement_score,
+            "strength": self.strength,
+            "importance": self.importance,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DIALOGUE TURNS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class DialogueTurnModel(Base):
+    """
+    Dialogue turn - tek bir mesaj.
+    """
+    __tablename__ = "dialogue_turns"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # Message info
+    role = Column(Text, nullable=False)  # user, agent, system
+    content = Column(Text, nullable=False)
+
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    # Emotional analysis
+    emotional_valence = Column(Float, default=0)
+    emotional_arousal = Column(Float, default=0)
+    detected_emotion = Column(Text)
+
+    # Intent and topics
+    intent = Column(Text)
+    topics = Column(ARRAY(Text), default=[])
+
+    # Embedding (for semantic search)
+    embedding = Column(ARRAY(Float))
+
+    # Meta
+    metadata = Column(JSONB, default={})
+
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+    # Relationships
+    conversation = relationship("ConversationModel", back_populates="turns")
+
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'agent', 'system')"),
+        CheckConstraint("emotional_valence >= -1 AND emotional_valence <= 1"),
+        CheckConstraint("emotional_arousal >= 0 AND emotional_arousal <= 1"),
+        Index("idx_dialogue_turns_conversation", conversation_id),
+        Index("idx_dialogue_turns_timestamp", timestamp.desc()),
+        Index("idx_dialogue_turns_role", role),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "conversation_id": str(self.conversation_id),
+            "role": self.role,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "emotional_valence": self.emotional_valence,
+            "emotional_arousal": self.emotional_arousal,
+            "detected_emotion": self.detected_emotion,
+            "intent": self.intent,
+            "topics": self.topics or [],
         }

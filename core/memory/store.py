@@ -23,7 +23,9 @@ from .types import (
     RelationshipRecord, Interaction, InteractionType, RelationshipType,
     WorkingMemoryItem, SensoryTrace,
     ConsolidationTask,
+    Conversation, DialogueTurn,
 )
+from .conversation import ConversationMemory, ConversationConfig
 
 # PostgreSQL persistence - graceful import
 try:
@@ -68,6 +70,11 @@ class MemoryConfig:
     default_retrieval_limit: int = 10
     min_strength_threshold: float = 0.1
 
+    # Conversation memory
+    conversation_context_turns: int = 10
+    conversation_max_tokens: int = 4000
+    conversation_session_timeout_min: float = 30.0
+
 
 class MemoryStore:
     """
@@ -80,6 +87,7 @@ class MemoryStore:
     - Semantic memory
     - Emotional memory
     - Relationship memory
+    - Conversation memory
     - Consolidation
     """
 
@@ -99,6 +107,14 @@ class MemoryStore:
 
         # Consolidation queue
         self._consolidation_queue: List[ConsolidationTask] = []
+
+        # Conversation memory subsystem
+        conv_config = ConversationConfig(
+            default_context_turns=self.config.conversation_context_turns,
+            max_context_tokens=self.config.conversation_max_tokens,
+            session_timeout_minutes=self.config.conversation_session_timeout_min,
+        )
+        self.conversation = ConversationMemory(conv_config)
 
         # Stats
         self._stats = {
@@ -978,6 +994,7 @@ class MemoryStore:
             "emotional_memories_count": len(self._emotional_memories),
             "concepts_count": len(self._concepts),
             "consolidation_queue_size": len(self._consolidation_queue),
+            **{f"conversation_{k}": v for k, v in self.conversation.stats.items()},
         }
 
     def debug_dump(self) -> Dict[str, Any]:
