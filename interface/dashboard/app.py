@@ -143,7 +143,7 @@ def render_phase_chart(data: Dict[str, Any]) -> None:
             "Phase": [p[0] for p in sorted_phases],
             "Duration (ms)": [p[1] for p in sorted_phases],
         }
-        st.bar_chart(chart_data, x="Phase", y="Duration (ms)", use_container_width=True)
+        st.bar_chart(chart_data, x="Phase", y="Duration (ms)", width="stretch")
     else:
         st.info("No phase duration data yet. Run some cycles to see metrics.")
 
@@ -192,7 +192,7 @@ def render_trust_chart(data: Dict[str, Any]) -> None:
             "Agent": [a[0] for a in sorted_trust],
             "Trust Level": [a[1] for a in sorted_trust],
         }
-        st.bar_chart(chart_data, x="Agent", y="Trust Level", use_container_width=True)
+        st.bar_chart(chart_data, x="Agent", y="Trust Level", width="stretch")
 
         # Trust legend
         st.caption("Trust scale: 0.0 (distrust) - 1.0 (full trust)")
