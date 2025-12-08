@@ -28,56 +28,60 @@ Base = declarative_base()
 # ═══════════════════════════════════════════════════════════════════════════
 
 class MemoryTypeEnum(str, enum.Enum):
-    SENSORY = "sensory"
-    WORKING = "working"
-    EPISODIC = "episodic"
-    SEMANTIC = "semantic"
-    EMOTIONAL = "emotional"
-    RELATIONSHIP = "relationship"
+    # Lowercase names to match PostgreSQL enum values
+    sensory = "sensory"
+    working = "working"
+    episodic = "episodic"
+    semantic = "semantic"
+    emotional = "emotional"
+    relationship = "relationship"
 
 
 class RelationshipTypeEnum(str, enum.Enum):
-    UNKNOWN = "unknown"
-    STRANGER = "stranger"
-    ACQUAINTANCE = "acquaintance"
-    COLLEAGUE = "colleague"
-    FRIEND = "friend"
-    CLOSE_FRIEND = "close_friend"
-    FAMILY = "family"
-    RIVAL = "rival"
-    ENEMY = "enemy"
-    NEUTRAL = "neutral"
+    # Lowercase names to match PostgreSQL enum values
+    unknown = "unknown"
+    stranger = "stranger"
+    acquaintance = "acquaintance"
+    colleague = "colleague"
+    friend = "friend"
+    close_friend = "close_friend"
+    family = "family"
+    rival = "rival"
+    enemy = "enemy"
+    neutral = "neutral"
 
 
 class InteractionTypeEnum(str, enum.Enum):
+    # Lowercase names to match PostgreSQL enum values
     # Positive
-    HELPED = "helped"
-    COOPERATED = "cooperated"
-    SHARED = "shared"
-    PROTECTED = "protected"
-    CELEBRATED = "celebrated"
-    COMFORTED = "comforted"
+    helped = "helped"
+    cooperated = "cooperated"
+    shared = "shared"
+    protected = "protected"
+    celebrated = "celebrated"
+    comforted = "comforted"
     # Neutral
-    OBSERVED = "observed"
-    CONVERSED = "conversed"
-    TRADED = "traded"
+    observed = "observed"
+    conversed = "conversed"
+    traded = "traded"
     # Negative
-    COMPETED = "competed"
-    CONFLICTED = "conflicted"
-    HARMED = "harmed"
-    BETRAYED = "betrayed"
-    THREATENED = "threatened"
-    ATTACKED = "attacked"
+    competed = "competed"
+    conflicted = "conflicted"
+    harmed = "harmed"
+    betrayed = "betrayed"
+    threatened = "threatened"
+    attacked = "attacked"
 
 
 class EpisodeTypeEnum(str, enum.Enum):
-    ENCOUNTER = "encounter"
-    INTERACTION = "interaction"
-    OBSERVATION = "observation"
-    CONFLICT = "conflict"
-    COOPERATION = "cooperation"
-    EMOTIONAL = "emotional"
-    SIGNIFICANT = "significant"
+    # Lowercase names to match PostgreSQL enum values
+    encounter = "encounter"
+    interaction = "interaction"
+    observation = "observation"
+    conflict = "conflict"
+    cooperation = "cooperation"
+    emotional = "emotional"
+    significant = "significant"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -106,7 +110,7 @@ class EpisodeModel(Base):
     episode_type = Column(
         Enum(EpisodeTypeEnum, name="episode_type", create_type=False),
         nullable=False,
-        default=EpisodeTypeEnum.ENCOUNTER,
+        default=EpisodeTypeEnum.encounter,
     )
     duration_seconds = Column(Float, default=0)
 
@@ -189,7 +193,7 @@ class RelationshipModel(Base):
     relationship_type = Column(
         Enum(RelationshipTypeEnum, name="relationship_type", create_type=False),
         nullable=False,
-        default=RelationshipTypeEnum.STRANGER,
+        default=RelationshipTypeEnum.stranger,
     )
     relationship_start = Column(DateTime(timezone=True), default=func.now())
 
@@ -227,8 +231,8 @@ class RelationshipModel(Base):
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
 
     # Relationships
-    interactions = relationship("InteractionModel", back_populates="relationship")
-    trust_history = relationship("TrustHistoryModel", back_populates="relationship")
+    interactions = relationship("InteractionModel", back_populates="rel")
+    trust_history = relationship("TrustHistoryModel", back_populates="rel")
 
     __table_args__ = (
         CheckConstraint("trust_score >= 0 AND trust_score <= 1"),

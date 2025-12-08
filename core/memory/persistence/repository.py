@@ -302,20 +302,20 @@ class MemoryRepository:
 
         # Categorize interaction
         positive_types = {
-            InteractionTypeEnum.HELPED, InteractionTypeEnum.COOPERATED,
-            InteractionTypeEnum.SHARED, InteractionTypeEnum.PROTECTED,
-            InteractionTypeEnum.CELEBRATED, InteractionTypeEnum.COMFORTED,
+            InteractionTypeEnum.helped, InteractionTypeEnum.cooperated,
+            InteractionTypeEnum.shared, InteractionTypeEnum.protected,
+            InteractionTypeEnum.celebrated, InteractionTypeEnum.comforted,
         }
         negative_types = {
-            InteractionTypeEnum.HARMED, InteractionTypeEnum.BETRAYED,
-            InteractionTypeEnum.THREATENED, InteractionTypeEnum.ATTACKED,
+            InteractionTypeEnum.harmed, InteractionTypeEnum.betrayed,
+            InteractionTypeEnum.threatened, InteractionTypeEnum.attacked,
         }
 
         if interaction_type in positive_types:
             relationship.positive_interactions += 1
         elif interaction_type in negative_types:
             relationship.negative_interactions += 1
-            if interaction_type == InteractionTypeEnum.BETRAYED:
+            if interaction_type == InteractionTypeEnum.betrayed:
                 relationship.betrayal_count += 1
                 relationship.last_betrayal = datetime.utcnow()
         else:
