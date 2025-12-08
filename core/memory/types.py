@@ -376,6 +376,11 @@ class RelationshipRecord(MemoryItem):
         self.last_interaction = interaction.timestamp
         self.last_interaction_type = interaction.interaction_type
 
+        # Trust score güncelle (KRİTİK!)
+        if interaction.trust_impact != 0:
+            self.trust_score = max(0.0, min(1.0, self.trust_score + interaction.trust_impact))
+            self.trust_history.append(self.trust_score)
+
         # Istatistik guncelle
         if interaction.outcome_valence > 0.2:
             self.positive_interactions += 1
