@@ -8,6 +8,8 @@ Kullanım:
         create_sense_handler,
         create_perceive_handler,
         create_retrieve_handler,
+        create_reason_handler,
+        create_evaluate_handler,
         create_feel_handler,
         create_decide_handler,
         create_act_handler,
@@ -31,6 +33,15 @@ from .memory import (
     RetrieveHandlerState,
     RetrievePhaseHandler,
     create_retrieve_handler,
+)
+
+from .cognition import (
+    CognitionHandlerConfig,
+    ReasonPhaseHandler,
+    EvaluatePhaseHandler,
+    create_reason_handler,
+    create_evaluate_handler,
+    create_cognition_handlers,
 )
 
 from .affect import (
@@ -57,7 +68,8 @@ def register_all_handlers(cycle, configs: dict = None):
 
     Args:
         cycle: CognitiveCycle instance
-        configs: {"perception": PerceptionConfig, "memory": RetrievePhaseConfig, ...}
+        configs: {"perception": PerceptionConfig, "memory": RetrievePhaseConfig,
+                  "cognition": CognitionHandlerConfig, ...}
     """
     from engine.phases import Phase
 
@@ -71,6 +83,11 @@ def register_all_handlers(cycle, configs: dict = None):
     # Memory (RETRIEVE)
     memory_config = configs.get("memory")
     cycle.register_handler(Phase.RETRIEVE, create_retrieve_handler(memory_config))
+
+    # Cognition (REASON, EVALUATE)
+    cognition_config = configs.get("cognition")
+    cycle.register_handler(Phase.REASON, create_reason_handler(cognition_config))
+    cycle.register_handler(Phase.EVALUATE, create_evaluate_handler(cognition_config))
 
     # Affect
     affect_config = configs.get("affect")
@@ -95,6 +112,14 @@ __all__ = [
     "RetrieveHandlerState",
     "RetrievePhaseHandler",
     "create_retrieve_handler",
+
+    # Cognition
+    "CognitionHandlerConfig",
+    "ReasonPhaseHandler",
+    "EvaluatePhaseHandler",
+    "create_reason_handler",
+    "create_evaluate_handler",
+    "create_cognition_handlers",
 
     # Affect
     "AffectPhaseConfig",
