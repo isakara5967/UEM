@@ -3,6 +3,11 @@
 UEM Dashboard Demo - 20 Farklı Senaryo
 
 Bu script farklı trust senaryolarını simüle eder.
+Her senaryo için:
+1. Episode kaydedilir
+2. Interaction kaydedilir
+3. Cognitive cycle çalıştırılır
+
 Dashboard'dan sonuçları kontrol edebilirsiniz.
 
 Kullanım:
@@ -22,6 +27,8 @@ from core.memory import (
     Interaction, InteractionType,
     MemoryConfig, Episode, EpisodeType,
 )
+from engine.cycle import CognitiveCycle, CycleConfig
+from meta.monitoring.persistence import MonitoringPersistence
 
 # Database connection
 DB_URL = "postgresql://uem:uem_secret@localhost:5432/uem_v2"
@@ -37,11 +44,22 @@ def create_memory():
     return get_memory_store(config)
 
 
-def run_scenarios(memory):
+def create_cycle():
+    """Create cognitive cycle with monitoring enabled."""
+    config = CycleConfig(
+        enable_monitoring=True,
+        emit_events=True,
+        report_each_cycle=False,
+    )
+    return CognitiveCycle(config=config)
+
+
+def run_scenarios(memory, cycle):
     """20 farklı senaryo çalıştır."""
 
     print("\n" + "="*60)
     print("UEM Dashboard Demo - 20 Senaryo")
+    print("Her senaryo: Episode + Interaction + Cycle")
     print("="*60 + "\n")
 
     scenarios = [
@@ -53,6 +71,7 @@ def run_scenarios(memory):
         {
             "agent": "alice",
             "type": InteractionType.HELPED,
+            "episode_type": EpisodeType.COOPERATION,
             "trust_impact": 0.15,
             "description": "Alice zor durumda yardım etti",
         },
@@ -61,6 +80,7 @@ def run_scenarios(memory):
         {
             "agent": "bob",
             "type": InteractionType.COOPERATED,
+            "episode_type": EpisodeType.COOPERATION,
             "trust_impact": 0.10,
             "description": "Bob ile başarılı proje işbirliği",
         },
@@ -69,6 +89,7 @@ def run_scenarios(memory):
         {
             "agent": "diana",
             "type": InteractionType.SHARED,
+            "episode_type": EpisodeType.INTERACTION,
             "trust_impact": 0.12,
             "description": "Diana değerli bilgi paylaştı",
         },
@@ -77,6 +98,7 @@ def run_scenarios(memory):
         {
             "agent": "jack",
             "type": InteractionType.PROTECTED,
+            "episode_type": EpisodeType.SIGNIFICANT,
             "trust_impact": 0.20,
             "description": "Jack tehlikeli durumda koruma sağladı",
         },
@@ -85,6 +107,7 @@ def run_scenarios(memory):
         {
             "agent": "henry",
             "type": InteractionType.CELEBRATED,
+            "episode_type": EpisodeType.EMOTIONAL_EVENT,
             "trust_impact": 0.08,
             "description": "Henry başarıları birlikte kutladı",
         },
@@ -93,6 +116,7 @@ def run_scenarios(memory):
         {
             "agent": "grace",
             "type": InteractionType.COMFORTED,
+            "episode_type": EpisodeType.EMOTIONAL_EVENT,
             "trust_impact": 0.10,
             "description": "Grace zor zamanda teselli etti",
         },
@@ -105,6 +129,7 @@ def run_scenarios(memory):
         {
             "agent": "frank",
             "type": InteractionType.OBSERVED,
+            "episode_type": EpisodeType.OBSERVATION,
             "trust_impact": 0.0,
             "description": "Frank'in davranışlarını gözlemleme",
         },
@@ -113,6 +138,7 @@ def run_scenarios(memory):
         {
             "agent": "bob",
             "type": InteractionType.CONVERSED,
+            "episode_type": EpisodeType.INTERACTION,
             "trust_impact": 0.02,
             "description": "Bob ile günlük sohbet",
         },
@@ -121,6 +147,7 @@ def run_scenarios(memory):
         {
             "agent": "frank",
             "type": InteractionType.TRADED,
+            "episode_type": EpisodeType.INTERACTION,
             "trust_impact": 0.03,
             "description": "Frank ile adil ticaret",
         },
@@ -133,6 +160,7 @@ def run_scenarios(memory):
         {
             "agent": "ivy",
             "type": InteractionType.COMPETED,
+            "episode_type": EpisodeType.CONFLICT,
             "trust_impact": -0.05,
             "description": "Ivy ile kaynak için rekabet",
         },
@@ -141,6 +169,7 @@ def run_scenarios(memory):
         {
             "agent": "eve",
             "type": InteractionType.CONFLICTED,
+            "episode_type": EpisodeType.CONFLICT,
             "trust_impact": -0.10,
             "description": "Eve ile fikir çatışması",
         },
@@ -149,6 +178,7 @@ def run_scenarios(memory):
         {
             "agent": "stranger_1",
             "type": InteractionType.HARMED,
+            "episode_type": EpisodeType.CONFLICT,
             "trust_impact": -0.20,
             "description": "Yabancı kasıtlı zarar verdi",
         },
@@ -157,6 +187,7 @@ def run_scenarios(memory):
         {
             "agent": "charlie",
             "type": InteractionType.BETRAYED,
+            "episode_type": EpisodeType.SIGNIFICANT,
             "trust_impact": -0.40,
             "description": "Charlie güveni kötüye kullandı - İHANET!",
         },
@@ -165,6 +196,7 @@ def run_scenarios(memory):
         {
             "agent": "eve",
             "type": InteractionType.THREATENED,
+            "episode_type": EpisodeType.CONFLICT,
             "trust_impact": -0.25,
             "description": "Eve açıkça tehdit etti",
         },
@@ -173,6 +205,7 @@ def run_scenarios(memory):
         {
             "agent": "enemy_1",
             "type": InteractionType.ATTACKED,
+            "episode_type": EpisodeType.CONFLICT,
             "trust_impact": -0.35,
             "description": "Düşman fiziksel saldırı gerçekleştirdi",
         },
@@ -185,6 +218,7 @@ def run_scenarios(memory):
         {
             "agent": "alice",
             "type": InteractionType.HELPED,
+            "episode_type": EpisodeType.COOPERATION,
             "trust_impact": 0.10,
             "description": "Alice bir kez daha yardım etti",
         },
@@ -193,6 +227,7 @@ def run_scenarios(memory):
         {
             "agent": "bob",
             "type": InteractionType.PROTECTED,
+            "episode_type": EpisodeType.SIGNIFICANT,
             "trust_impact": 0.15,
             "description": "Bob beklenmedik bir şekilde koruma sağladı",
         },
@@ -201,6 +236,7 @@ def run_scenarios(memory):
         {
             "agent": "charlie",
             "type": InteractionType.CONVERSED,
+            "episode_type": EpisodeType.INTERACTION,
             "trust_impact": 0.05,
             "description": "Charlie özür diledi - küçük güven artışı",
         },
@@ -209,6 +245,7 @@ def run_scenarios(memory):
         {
             "agent": "diana",
             "type": InteractionType.COOPERATED,
+            "episode_type": EpisodeType.COOPERATION,
             "trust_impact": 0.12,
             "description": "Diana ile başarılı işbirliği",
         },
@@ -217,6 +254,7 @@ def run_scenarios(memory):
         {
             "agent": "jack",
             "type": InteractionType.PROTECTED,
+            "episode_type": EpisodeType.SIGNIFICANT,
             "trust_impact": 0.25,
             "description": "Jack hayat kurtardı - KAHRAMANLIK!",
         },
@@ -230,16 +268,29 @@ def run_scenarios(memory):
         record = memory.get_relationship(agent)
         old_trust = record.trust_score
 
-        # Interaction oluştur ve kaydet
+        # 1. Episode oluştur ve kaydet
+        episode = Episode(
+            what=scenario["description"],
+            who=[agent],
+            when=datetime.now(),
+            episode_type=scenario["episode_type"],
+            outcome=scenario["description"],
+            outcome_valence=scenario["trust_impact"],
+        )
+        episode_id = memory.store_episode(episode)
+
+        # 2. Interaction oluştur ve kaydet
         interaction = Interaction(
             interaction_type=scenario["type"],
             trust_impact=scenario["trust_impact"],
             context=scenario["description"],
-            outcome_valence=scenario["trust_impact"],  # Basitlik için aynı
+            outcome_valence=scenario["trust_impact"],
             timestamp=datetime.now(),
         )
-
         memory.record_interaction(agent, interaction)
+
+        # 3. Cognitive Cycle çalıştır
+        cycle.run()
 
         # Yeni trust değerini al
         record = memory.get_relationship(agent)
@@ -249,13 +300,22 @@ def run_scenarios(memory):
         delta_str = f"+{scenario['trust_impact']}" if scenario['trust_impact'] >= 0 else f"{scenario['trust_impact']}"
         print(f"[{i:2d}] {agent:12s} | {scenario['type'].value:12s} | "
               f"trust: {old_trust:.2f} → {new_trust:.2f} ({delta_str})")
-        print(f"     └─ {scenario['description']}")
+        print(f"     ├─ Episode: {episode_id[:8]}... ({scenario['episode_type'].value})")
+        print(f"     └─ Cycle #{cycle.cycle_count} completed")
         print()
 
     # Özet
     print("\n" + "="*60)
-    print("ÖZET - Trust Seviyeleri")
+    print("ÖZET")
     print("="*60)
+
+    # Cycle özeti
+    print(f"\nTotal Cycles: {cycle.cycle_count}")
+    print(f"Total Episodes: {len(memory.get_recent_episodes(100))}")
+
+    # Trust seviyeleri
+    print("\nTrust Seviyeleri:")
+    print("-" * 50)
 
     all_relationships = memory.get_all_relationships()
     all_relationships.sort(key=lambda r: r.trust_score, reverse=True)
@@ -309,6 +369,11 @@ def main():
     """Ana fonksiyon."""
     print("\nPostgreSQL'e bağlanılıyor...")
 
+    # MonitoringPersistence başlat
+    monitoring = MonitoringPersistence(database_url=DB_URL)
+    monitoring.start()
+    print("✓ MonitoringPersistence başlatıldı")
+
     try:
         memory = create_memory()
 
@@ -317,8 +382,12 @@ def main():
         else:
             print("⚠ PostgreSQL bağlantısı yok, in-memory mod kullanılacak.")
 
+        # CognitiveCycle oluştur
+        cycle = create_cycle()
+        print("✓ CognitiveCycle oluşturuldu (enable_monitoring=True)")
+
         # Senaryoları çalıştır
-        run_scenarios(memory)
+        run_scenarios(memory, cycle)
 
         # DB doğrulama
         verify_db(memory)
@@ -328,6 +397,10 @@ def main():
         import traceback
         traceback.print_exc()
         return 1
+    finally:
+        # MonitoringPersistence durdur
+        monitoring.stop()
+        print("✓ MonitoringPersistence durduruldu")
 
     return 0
 
