@@ -358,15 +358,28 @@ class MemoryRepository:
         self.session.refresh(interaction)
 
         # Update relationship trust_score if trust_impact is set
-        if update_relationship and interaction.trust_impact:
+        # Note: trust_impact can be negative, so check is not None instead of truthy
+        if update_relationship and interaction.trust_impact is not None and interaction.trust_impact != 0:
+            logger.debug(
+                f"save_interaction: applying trust_impact={interaction.trust_impact} "
+                f"to relationship_id={interaction.relationship_id}"
+            )
             relationship = self.session.query(RelationshipModel).filter(
                 RelationshipModel.id == interaction.relationship_id
             ).first()
 
             if relationship:
+                logger.debug(
+                    f"Found relationship: agent={relationship.agent_id}, "
+                    f"current_trust={relationship.trust_score}"
+                )
                 # Apply trust_impact to trust_score
-                new_trust = relationship.trust_score + interaction.trust_impact
+                old_trust = relationship.trust_score
+                new_trust = old_trust + interaction.trust_impact
                 relationship.trust_score = max(0.0, min(1.0, new_trust))
+                logger.debug(
+                    f"Updated trust: {old_trust:.2f} + {interaction.trust_impact:.2f} = {relationship.trust_score:.2f}"
+                )
 
                 # Update interaction counts
                 relationship.total_interactions += 1

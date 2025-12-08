@@ -288,9 +288,9 @@ class MemoryStore:
                 occurred_at=interaction.timestamp,
             )
 
-            self._repository.save_interaction(model)
+            self._repository.save_interaction(model, update_relationship=False)
 
-            # Also update relationship stats
+            # Update relationship stats (trust_score, counts, etc.)
             self._repository.update_relationship_stats(
                 agent_id=agent_id,
                 interaction_type=InteractionTypeEnum(interaction.interaction_type.value),
