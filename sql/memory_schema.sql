@@ -277,6 +277,59 @@ CREATE INDEX idx_trust_history_recorded ON trust_history(recorded_at DESC);
 CREATE INDEX idx_trust_history_relationship ON trust_history(relationship_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- CYCLE METRICS
+-- Monitoring dashboard için cycle metrikleri
+-- ═══════════════════════════════════════════════════════════════════════════
+
+DROP TABLE IF EXISTS cycle_metrics CASCADE;
+
+CREATE TABLE cycle_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    cycle_id INT NOT NULL,
+
+    -- Timing
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    ended_at TIMESTAMP WITH TIME ZONE,
+    duration_ms FLOAT,
+
+    -- Status
+    success BOOLEAN DEFAULT TRUE,
+    error_message TEXT,
+
+    -- Phase durations (JSONB for flexibility)
+    phase_durations JSONB DEFAULT '{}',
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_cycle_metrics_started ON cycle_metrics(started_at DESC);
+CREATE INDEX idx_cycle_metrics_cycle_id ON cycle_metrics(cycle_id);
+CREATE INDEX idx_cycle_metrics_success ON cycle_metrics(success);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ACTIVITY LOG
+-- Dashboard için aktivite logları
+-- ═══════════════════════════════════════════════════════════════════════════
+
+DROP TABLE IF EXISTS activity_log CASCADE;
+
+CREATE TABLE activity_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    event_type TEXT NOT NULL,
+    source TEXT,
+    cycle_id INT,
+
+    data JSONB DEFAULT '{}',
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
+CREATE INDEX idx_activity_log_event_type ON activity_log(event_type);
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- FUNCTIONS & TRIGGERS
 -- ═══════════════════════════════════════════════════════════════════════════
 
