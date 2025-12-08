@@ -5,6 +5,8 @@ Ana işlem döngüsü - 10 faz sırayla çalışır.
 
 BUG FIX: Phase results artık context.metadata'ya da ekleniyor,
 böylece DECIDE handler orchestrator suggestion'a erişebiliyor.
+
+MONITORING: CycleMetrics ile entegre - her cycle ve phase ölçülür.
 """
 
 from dataclasses import dataclass, field
@@ -17,6 +19,8 @@ from .events import EventType, Event, EventBus, get_event_bus
 from .phases import Phase, PhaseConfig, PhaseResult, DEFAULT_PHASE_CONFIGS
 from foundation.state import StateVector
 from foundation.types import Context, ModuleType, Stimulus
+from meta.monitoring.metrics import CycleMetrics, CycleMetricsHistory
+from meta.monitoring.reporter import MonitoringReporter, get_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +36,11 @@ class CycleConfig:
     max_cycle_time_ms: float = 5000.0
     stop_on_error: bool = False
     emit_events: bool = True
+
+    # Monitoring ayarları
+    enable_monitoring: bool = True
+    report_each_cycle: bool = False  # Her cycle sonunda rapor yaz
+    compact_reports: bool = True     # Kompakt rapor formatı
 
 
 @dataclass
@@ -69,14 +78,20 @@ class CognitiveCycle:
         self,
         config: Optional[CycleConfig] = None,
         event_bus: Optional[EventBus] = None,
+        reporter: Optional[MonitoringReporter] = None,
     ):
         self.config = config or CycleConfig()
         self.event_bus = event_bus or get_event_bus()
-        
+        self.reporter = reporter or get_reporter()
+
         self._handlers: Dict[Phase, PhaseHandler] = {}
         self._cycle_count: int = 0
         self._current_state: Optional[CycleState] = None
-        
+
+        # Monitoring
+        self._metrics_history = CycleMetricsHistory()
+        self._current_metrics: Optional[CycleMetrics] = None
+
         # Default placeholder handlers
         self._register_default_handlers()
     
@@ -130,7 +145,7 @@ class CognitiveCycle:
             CycleState - tüm sonuçlarla birlikte
         """
         self._cycle_count += 1
-        
+
         # State oluştur
         cycle_state = CycleState(
             cycle_id=self._cycle_count,
@@ -138,19 +153,29 @@ class CognitiveCycle:
             start_time=datetime.now(),
         )
         self._current_state = cycle_state
-        
+
+        # ═══════════════════════════════════════════════════════════════
+        # MONITORING: CycleMetrics başlat
+        # ═══════════════════════════════════════════════════════════════
+        if self.config.enable_monitoring:
+            self._current_metrics = CycleMetrics(cycle_id=self._cycle_count)
+
         # Context oluştur
         context = Context(
             cycle_id=self._cycle_count,
             metadata={"stimulus": stimulus} if stimulus else {},
         )
-        
+
         # ═══════════════════════════════════════════════════════════════
         # BUG FIX: phase_results için container oluştur
         # DECIDE handler buradan okuyacak
         # ═══════════════════════════════════════════════════════════════
         context.metadata["phase_results"] = {}
-        
+
+        # Cycle metrics'i context'e ekle (phase handler'lar kullanabilsin)
+        if self._current_metrics:
+            context.metadata["cycle_metrics"] = self._current_metrics
+
         # Cycle başlangıç eventi
         if self.config.emit_events:
             self.event_bus.emit(
@@ -158,7 +183,7 @@ class CognitiveCycle:
                 source="engine",
                 cycle_id=self._cycle_count,
             )
-        
+
         logger.info(f"Cycle {self._cycle_count} started")
         
         # Fazları sırayla çalıştır
@@ -170,9 +195,15 @@ class CognitiveCycle:
                     skipped=True,
                 )
                 continue
-            
+
             cycle_state.current_phase = phase_config.phase
-            
+
+            # ═══════════════════════════════════════════════════════════
+            # MONITORING: Phase başlangıcı
+            # ═══════════════════════════════════════════════════════════
+            if self._current_metrics:
+                self._current_metrics.record_phase_start(phase_config.phase.value)
+
             # Faz eventi
             if self.config.emit_events:
                 self.event_bus.emit(
@@ -181,20 +212,30 @@ class CognitiveCycle:
                     cycle_id=self._cycle_count,
                     phase=phase_config.phase.value,
                 )
-            
+
             # Handler'ı çalıştır
             result = self._run_phase(
                 phase_config,
                 cycle_state.state_vector,
                 context,
             )
-            
+
             # ═══════════════════════════════════════════════════════════
             # BUG FIX: Result'ı HEM cycle_state'e HEM context'e yaz
             # ═══════════════════════════════════════════════════════════
             cycle_state.phase_results[phase_config.phase] = result
             context.metadata["phase_results"][phase_config.phase] = result
-            
+
+            # ═══════════════════════════════════════════════════════════
+            # MONITORING: Phase bitişi
+            # ═══════════════════════════════════════════════════════════
+            if self._current_metrics:
+                self._current_metrics.record_phase_end(
+                    phase_config.phase.value,
+                    success=result.success,
+                    duration_ms=result.duration_ms,
+                )
+
             # Faz bitiş eventi
             if self.config.emit_events:
                 self.event_bus.emit(
@@ -205,7 +246,7 @@ class CognitiveCycle:
                     success=result.success,
                     duration_ms=result.duration_ms,
                 )
-            
+
             # Hata kontrolü
             if not result.success and phase_config.required and self.config.stop_on_error:
                 logger.error(f"Phase {phase_config.phase.value} failed, stopping cycle")
@@ -214,7 +255,21 @@ class CognitiveCycle:
         # Cycle bitir
         cycle_state.end_time = datetime.now()
         cycle_state.current_phase = None
-        
+
+        # ═══════════════════════════════════════════════════════════════
+        # MONITORING: Cycle sonlandır ve history'e ekle
+        # ═══════════════════════════════════════════════════════════════
+        if self._current_metrics:
+            self._current_metrics.finalize()
+            self._metrics_history.add(self._current_metrics)
+
+            # Rapor yazdır (opsiyonel)
+            if self.config.report_each_cycle:
+                if self.config.compact_reports:
+                    self.reporter.report_cycle_compact(self._current_metrics)
+                else:
+                    self.reporter.report_cycle(self._current_metrics)
+
         # Cycle bitiş eventi
         if self.config.emit_events:
             self.event_bus.emit(
@@ -224,11 +279,11 @@ class CognitiveCycle:
                 duration_ms=cycle_state.duration_ms,
                 success=all(r.success for r in cycle_state.phase_results.values()),
             )
-        
+
         logger.info(
             f"Cycle {self._cycle_count} completed in {cycle_state.duration_ms:.1f}ms"
         )
-        
+
         return cycle_state
     
     def _run_phase(
@@ -278,9 +333,36 @@ class CognitiveCycle:
     
     def get_stats(self) -> Dict[str, Any]:
         """Cycle istatistikleri."""
-        return {
+        stats = {
             "total_cycles": self._cycle_count,
-            "registered_handlers": len([h for h in self._handlers.values() 
+            "registered_handlers": len([h for h in self._handlers.values()
                                         if h != self._default_handler]),
             "event_bus_stats": self.event_bus.stats,
         }
+
+        # Monitoring stats
+        if self.config.enable_monitoring:
+            stats["monitoring"] = {
+                "history_count": self._metrics_history.count,
+                "avg_duration_ms": self._metrics_history.get_average_duration(100),
+                "success_rate": self._metrics_history.get_success_rate(100),
+                "phase_averages": self._metrics_history.get_phase_averages(100),
+                "memory_stats": self._metrics_history.get_memory_stats(100),
+                "trust_stats": self._metrics_history.get_trust_stats(100),
+            }
+
+        return stats
+
+    @property
+    def metrics_history(self) -> CycleMetricsHistory:
+        """Cycle metrics history'sine erişim."""
+        return self._metrics_history
+
+    @property
+    def current_metrics(self) -> Optional[CycleMetrics]:
+        """Şu anki cycle'ın metrikleri."""
+        return self._current_metrics
+
+    def print_summary(self, last_n: int = 100) -> None:
+        """Monitoring özetini yazdır."""
+        self.reporter.report_summary(self._metrics_history, last_n)
