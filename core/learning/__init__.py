@@ -12,6 +12,12 @@ Components:
 - LearningOutcome: Ogrenme sonucu
 - FeedbackCollector: Geri bildirim toplama
 - PatternStorage: Pattern depolama ve arama
+- RewardConfig: Reward hesaplama konfigurasyonu
+- RewardCalculator: Feedback'ten reward hesaplama
+- Reinforcer: Pattern guclendrme
+- AdaptationConfig: Adaptasyon konfigurasyonu
+- BehaviorAdapter: Davranis adaptasyonu
+- LearningProcessor: Ana ogrenme koordinatoru
 """
 
 from .types import (
@@ -28,6 +34,20 @@ from .feedback import FeedbackCollector
 
 from .patterns import PatternStorage
 
+from .reinforcement import (
+    RewardConfig,
+    RewardCalculator,
+    Reinforcer,
+)
+
+from .adaptation import (
+    AdaptationConfig,
+    AdaptationRecord,
+    BehaviorAdapter,
+)
+
+from .processor import LearningProcessor
+
 
 __all__ = [
     # Enums
@@ -37,10 +57,17 @@ __all__ = [
     "Feedback",
     "Pattern",
     "LearningOutcome",
+    "RewardConfig",
+    "AdaptationConfig",
+    "AdaptationRecord",
     # Utility functions
     "generate_feedback_id",
     "generate_pattern_id",
     # Classes
     "FeedbackCollector",
     "PatternStorage",
+    "RewardCalculator",
+    "Reinforcer",
+    "BehaviorAdapter",
+    "LearningProcessor",
 ]
