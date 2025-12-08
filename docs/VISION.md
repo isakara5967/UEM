@@ -1,519 +1,431 @@
 # UEM v2 - VİZYON VE YOL HARİTASI
 
 **Son Güncelleme:** 8 Aralık 2025  
-**Versiyon:** 1.1  
+**Versiyon:** 2.0  
 **Durum:** Aktif
 
 ---
 
-## 1. MEVCUT DURUM (Dürüst Değerlendirme)
+## 1. TEMEL FELSEFE
 
-### 1.1 Ne Var?
+### 1.1 UEM Nedir?
 
-| Modül | Test | Gerçek Durum |
-|-------|------|--------------|
-| Perception | 49 | ⚠️ Hardcoded input, gerçek sensör yok |
-| Cognition | 75 | ⚠️ Basit reasoning, sınırlı planning |
-| Memory | 25 | ⚠️ CRUD var, semantic search yok |
-| Affect | ~50 | ✅ PAD, empathy, sympathy, trust çalışıyor |
-| Self | 88 | ⚠️ Yapı var, gerçek kullanım yok |
-| Consciousness | 69 | ⚠️ GWT konsepti var, entegrasyon zayıf |
-| Metamind | 65 | ⚠️ Pattern var, veri olmadan anlamsız |
-| Monitoring | 29 | ✅ Dashboard çalışıyor |
-| Integration | 41 | ⚠️ İzole testler |
+**Unknown Evola Mind (UEM)** - Bağımsız, öğrenen, sosyal ve duygusal zekaya sahip cognitive architecture.
 
-**Toplam:** 530 test, 11 modül
+### 1.2 Temel İlkeler
 
-### 1.2 Ne Yok? (Kritik Eksiklikler)
+| İlke | Açıklama |
+|------|----------|
+| **Bağımsızlık** | LLM'lere bağımlı DEĞİL, ama yardım alabilir |
+| **Öğrenme** | Deneyimden öğrenir, gelişir, adapte olur |
+| **Etik** | Başkalarının iyi niyetini suistimal etmez |
+| **Maksimalist** | Eksik bırakmaz, tam yapar |
+| **Emergent** | Basit kurallardan karmaşık davranış çıkar |
 
-| # | Eksik | Önem | Durum |
-|---|-------|------|-------|
-| 1 | **Dil/Konuşma** | 🔴 Kritik | Hiç yok |
-| 2 | **Conversation Memory** | 🔴 Kritik | Hiç yok |
-| 3 | **Embedding/Semantic Search** | 🔴 Kritik | Hiç yok |
-| 4 | **Context Management** | 🔴 Kritik | Hiç yok |
-| 5 | **Aktif Decay/Forgetting** | 🟡 Önemli | Kod var, aktif değil |
-| 6 | **Learning** | 🟡 Önemli | Hiç yok |
-| 7 | **Multi-Agent** | 🟠 Sonra | Hiç yok |
-| 8 | **Gerçek Sensör** | 🟠 Sonra | Hiç yok |
-| 9 | **Oyun Entegrasyonu** | ⚪ Çok sonra | Hiç yok |
-
-### 1.3 Dürüst Özet
+### 1.3 LLM İlişkisi
 
 ```
-UEM şu an:
-  ✅ İskelet tamamlandı
-  ✅ Temel modüller çalışıyor (izole)
-  ✅ Unit testler geçiyor
+YANLIŞ:
+  UEM = Kabuk
+  LLM = Beyin
+  UEM tamamen LLM'e bağımlı ❌
+
+DOĞRU:
+  UEM = Bağımsız beyin (düşünme, hissetme, hatırlama, öğrenme)
+  LLM = Yardımcı (başlangıçta dil için, sonra öğretmen olarak)
   
-  ❌ Konuşamıyor
-  ❌ Gerçek senaryoda test edilmedi
-  ❌ Production'a hazır değil
+  Zaman içinde:
+    LLM yardımı: %100 → %50 → %10 → %0
+    UEM kendi yeteneği: %0 → %50 → %90 → %100
+```
+
+---
+
+## 2. MEVCUT DURUM (8 Aralık 2025)
+
+### 2.1 Tamamlanan Modüller
+
+| Modül | Test | Durum |
+|-------|------|-------|
+| Perception | 49 | ✅ |
+| Cognition | 75 | ✅ |
+| Memory - Core | 25 | ✅ |
+| Memory - Conversation | 42 | ✅ |
+| Memory - Embeddings | 45 | ✅ |
+| Memory - Semantic | 49 | ✅ |
+| Affect (PAD, Empathy, Sympathy, Trust) | ~80 | ✅ |
+| Self (Identity, Values, Needs) | 88 | ✅ |
+| Executive | ~15 | ✅ |
+| Consciousness (GWT) | 69 | ✅ |
+| Metamind | 65 | ✅ |
+| Monitoring | 29 | ✅ |
+| Integration Tests | 41 | ✅ |
+| Language - Context Builder | 47 | ✅ |
+| Language - LLM Adapter | 48 | ✅ |
+| Language - Chat Agent | 55 | ✅ |
+| Language - CLI | 35 | ✅ |
+
+**Toplam: ~850+ test**
+
+### 2.2 Kritik Eksikler
+
+| # | Eksik | Öncelik | Durum |
+|---|-------|---------|-------|
+| 1 | **Learning** | 🔴 Kritik | ❌ Yok |
+| 2 | **Multi-Agent** | 🔴 Kritik | ❌ Yok |
+| 3 | **Kendi Dil Üretimi** | 🔴 Kritik | ❌ Yok (LLM'e bağımlı) |
+| 4 | **Pattern Language** | 🔴 Kritik | ❌ Yok |
+| 5 | **Decay Aktif** | 🟡 Önemli | ⚠️ Pasif |
+| 6 | **Agent Communication** | 🟡 Önemli | ❌ Yok |
+| 7 | **Reinforcement** | 🟡 Önemli | ❌ Yok |
+| 8 | **Full Cycle Entegrasyonu** | 🟡 Önemli | ⚠️ Kısmi |
+
+---
+
+## 3. UZUN VADELİ VİZYON
+
+### 3.1 10000 Ajan Vizyonu
+
+```
+Tek UEM = Sınırlı zeka
+
+10000 UEM ajan birlikte:
+  Ajan_1-1000:    Algı işleme (görsel, işitsel, dokunsal)
+  Ajan_1001-2000: Dil pattern'leri öğrenme
+  Ajan_2001-3000: Duygu analizi
+  Ajan_3001-4000: Sosyal ilişki modelleme
+  Ajan_4001-5000: Mantık ve çıkarım
+  Ajan_5001-6000: Hafıza konsolidasyonu
+  Ajan_6001-7000: Yaratıcılık ve sentez
+  Ajan_7001-8000: Motor kontrol (robotik için)
+  Ajan_8001-9000: İletişim ve koordinasyon
+  Ajan_9001-10000: Meta-learning ve adaptasyon
   
-Durum: ALPHA - Sadece geliştirici için çalışır
+  Sonuç: Emergent Intelligence
+```
+
+### 3.2 Bağımsız Dil Öğrenme
+
+```
+Aşama 1 (Şimdi):
+  Input → LLM → Output
+  UEM: Sadece hafıza ve context tutuyor
+  Bağımlılık: %100
+
+Aşama 2 (Öğrenme ile):
+  Input → UEM pattern çıkarıyor
+  UEM → Benzer pattern'leri hatırlıyor
+  UEM → Template + Pattern → Output
+  LLM: Sadece zor durumlar için
+  Bağımlılık: %50
+
+Aşama 3 (Multi-Agent ile):
+  Ajan_1: Input alıyor
+  Ajan_2-100: Pattern işliyor
+  Ajan_101-200: Context oluşturuyor
+  Ajan_201-300: Cümle yapısı kuruyor
+  Ajan_301-400: Kelime seçiyor
+  Ajan_401: Output birleştiriyor
+  LLM: Sadece feedback/öğretmen
+  Bağımlılık: %10
+
+Aşama 4 (Tam Bağımsız):
+  Tüm işlem UEM ajanları tarafından
+  LLM: Gerek yok
+  Bağımlılık: %0
+```
+
+### 3.3 Çocuk Gibi Öğrenme
+
+```
+İnsan çocuğu nasıl dil öğrenir?
+  1. Dinler (veri toplar)
+  2. Pattern bulur ("mama" = yemek)
+  3. Tekrar eder (babıldama)
+  4. Feedback alır (doğru/yanlış)
+  5. Düzeltir
+  6. Geneller ("mama" → "yemek" → "açım")
+  7. Yeni durumlar üretir
+
+UEM aynısını yapmalı:
+  1. Veri al (LLM, kullanıcı, başka ajan)
+  2. Embedding ile pattern bul
+  3. Template ile üret
+  4. Feedback al
+  5. Reinforcement ile güçlendir
+  6. Genelleştir
+  7. Yeni kombinasyonlar üret
 ```
 
 ---
 
-## 2. KRİTİK EKSİKLİKLER (Detaylı)
+## 4. ROADMAP (Güncellenmiş)
 
-### 2.1 Conversation Memory (YOK)
+### Faz 1: Memory Güçlendirme ✅ TAMAMLANDI
 
-**Sorun:**
-```python
-# Şu an
-memory.store_episode("Bob yardım etti")  # Tek cümle
+| İş | Durum |
+|----|-------|
+| Conversation Memory | ✅ |
+| Embeddings | ✅ |
+| Semantic Search | ✅ |
+| Context Builder | ✅ |
 
-# Olması gereken
-memory.store_dialogue([
-    {"role": "user", "content": "Merhaba"},
-    {"role": "agent", "content": "Merhaba!"},
-    {"role": "user", "content": "Nasılsın?"},
-    {"role": "agent", "content": "İyiyim, teşekkürler"},
-])
-```
+### Faz 2: Dil Entegrasyonu ✅ TAMAMLANDI
 
-**Neden Kritik:** Sohbet geçmişi olmadan dil entegrasyonu imkansız.
+| İş | Durum |
+|----|-------|
+| LLM Adapter | ✅ |
+| Chat Agent | ✅ |
+| CLI Interface | ✅ |
 
-**Çözüm:**
-```python
-@dataclass
-class DialogueTurn:
-    role: str                    # "user" | "agent"
-    content: str                 # Mesaj
-    timestamp: datetime          # Ne zaman
-    emotion: Optional[PADState]  # Duygu durumu
-    intent: Optional[str]        # Niyet (soru, rica, bilgi)
-    topic: Optional[str]         # Konu
+### Faz 3: Learning (SONRAKİ)
 
-class ConversationMemory:
-    def add_turn(self, turn: DialogueTurn) -> None
-    def get_recent(self, n: int = 10) -> List[DialogueTurn]
-    def get_by_topic(self, topic: str) -> List[DialogueTurn]
-    def get_by_date(self, start: datetime, end: datetime) -> List[DialogueTurn]
-    def count_turns(self) -> int
-```
+| Hafta | İş | Açıklama |
+|-------|-----|----------|
+| 1 | Feedback System | Kullanıcı geri bildirimi toplama |
+| 2 | Pattern Storage | Başarılı pattern'leri kaydetme |
+| 3 | Reinforcement | Pozitif feedback → pattern güçlendirme |
+| 4 | Behavior Adaptation | Öğrenilene göre davranış değişikliği |
+| 5 | Generalization | Pattern'lerden kural çıkarma |
+| 6 | Integration | Full cycle ile entegrasyon |
 
-**Dosyalar:**
-- [ ] `core/memory/conversation.py`
-- [ ] `core/memory/persistence/conversation_repo.py`
-- [ ] `sql/conversation_schema.sql`
-- [ ] `tests/unit/test_conversation_memory.py`
+**Çıktı:** UEM deneyimden öğreniyor
 
----
+### Faz 4: Pattern Language
 
-### 2.2 Embedding/Semantic Search (YOK)
+| Hafta | İş | Açıklama |
+|-------|-----|----------|
+| 1-2 | Language Patterns | Sık kullanılan dil kalıpları |
+| 3-4 | Template System | Dinamik cümle şablonları |
+| 5-6 | Pattern Composition | Şablonları birleştirme |
+| 7-8 | Generative Rules | Kural tabanlı üretim |
 
-**Sorun:**
-```python
-# Şu an
-memory.recall_episodes(agent_id="bob")  # ID ile ara
+**Çıktı:** UEM basit cümleler kurabiliyor (LLM'siz)
 
-# Olması gereken
-memory.search("geçen hafta ne konuştuk?")  # Anlam ile ara
-```
+### Faz 5: Multi-Agent Foundation
 
-**Neden Kritik:** Kullanıcı "dün ne konuştuk?" derse cevap veremiyoruz.
+| Hafta | İş | Açıklama |
+|-------|-----|----------|
+| 1-2 | Agent Base Class | Temel ajan yapısı |
+| 3-4 | Agent Communication | Ajanlar arası mesajlaşma |
+| 5-6 | Agent Registry | Ajan yönetimi |
+| 7-8 | Simple Swarm | 10 ajan birlikte çalışıyor |
 
-**Çözüm:**
-```python
-class SemanticMemory:
-    def __init__(self, model: str = "all-MiniLM-L6-v2"):
-        self.encoder = SentenceTransformer(model)
-        self.dimension = 384
-    
-    def encode(self, text: str) -> np.ndarray
-    def store(self, text: str, metadata: dict) -> str
-    def search(self, query: str, k: int = 5) -> List[SearchResult]
-    def search_by_date(self, query: str, after: datetime) -> List[SearchResult]
-```
+**Çıktı:** Basit multi-agent sistem
 
-**Gerekli Kütüphaneler:**
-- `sentence-transformers` - Embedding modeli
-- `pgvector` - PostgreSQL vector extension
+### Faz 6: Specialized Agents
 
-**Dosyalar:**
-- [ ] `core/memory/semantic.py`
-- [ ] `core/memory/embeddings.py`
-- [ ] `sql/vector_schema.sql`
-- [ ] `tests/unit/test_semantic_memory.py`
+| Hafta | İş | Açıklama |
+|-------|-----|----------|
+| 1-2 | Perception Agents | Algı işleyen ajanlar |
+| 3-4 | Language Agents | Dil işleyen ajanlar |
+| 5-6 | Memory Agents | Hafıza yöneten ajanlar |
+| 7-8 | Coordinator Agent | Orkestrasyon ajanı |
 
----
+**Çıktı:** 100 ajan birlikte çalışıyor
 
-### 2.3 Context Management (YOK)
+### Faz 7: Emergent Language
 
-**Sorun:**
-```
-Memory'de: 10,000 mesaj
-LLM context: ~4,000 token limit
+| Hafta | İş | Açıklama |
+|-------|-----|----------|
+| 1-4 | Agent Language Learning | Ajanlar birlikte dil öğreniyor |
+| 5-8 | Language Generation | Ajanlar birlikte cümle üretiyor |
 
-Soru: Hangilerini LLM'e vereceğiz?
-```
+**Çıktı:** LLM bağımlılığı %10'a düştü
 
-**Neden Kritik:** Yanlış context = yanlış cevap.
-
-**Çözüm:**
-```python
-class ContextBuilder:
-    def __init__(self, max_tokens: int = 4000):
-        self.max_tokens = max_tokens
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
-    
-    def build(self,
-              query: str,
-              recent_turns: List[DialogueTurn],
-              relevant_memories: List[MemoryItem],
-              self_state: SelfState,
-              relationship: RelationshipRecord) -> str:
-        """
-        Context öncelik sırası:
-        1. System prompt (personality, rules)
-        2. Self state özeti (mood, needs)
-        3. Relationship özeti (trust, history)
-        4. Son N turn (recency)
-        5. İlgili memory'ler (relevance)
-        6. Kullanıcı mesajı
-        """
-    
-    def count_tokens(self, text: str) -> int
-    def truncate_to_fit(self, sections: List[str]) -> str
-```
-
-**Dosyalar:**
-- [ ] `core/language/context.py`
-- [ ] `tests/unit/test_context_builder.py`
-
----
-
-### 2.4 LLM Adapter (YOK)
-
-**Sorun:** UEM karar veriyor ama konuşamıyor.
-
-**Çözüm:**
-```python
-class LLMAdapter:
-    """LLM API wrapper - değiştirilebilir backend"""
-    
-    def __init__(self, provider: str = "anthropic"):
-        self.provider = provider
-        self.client = self._init_client()
-    
-    async def generate(self,
-                       context: str,
-                       temperature: float = 0.7,
-                       max_tokens: int = 500) -> str:
-        """Cevap üret"""
-    
-    async def generate_stream(self,
-                              context: str) -> AsyncIterator[str]:
-        """Streaming cevap"""
-
-class UEMChatAgent:
-    """UEM + LLM entegre agent"""
-    
-    def __init__(self,
-                 personality: str,
-                 llm: LLMAdapter,
-                 memory: MemoryStore,
-                 self_processor: SelfProcessor):
-        self.personality = personality
-        self.llm = llm
-        self.memory = memory
-        self.self_processor = self_processor
-    
-    async def chat(self, user_message: str) -> str:
-        # 1. Memory'den context al
-        recent = self.memory.conversation.get_recent(10)
-        relevant = self.memory.semantic.search(user_message, k=5)
-        
-        # 2. Self state al
-        self_state = self.self_processor.get_state()
-        
-        # 3. Context oluştur
-        context = self.context_builder.build(
-            query=user_message,
-            recent_turns=recent,
-            relevant_memories=relevant,
-            self_state=self_state
-        )
-        
-        # 4. LLM'den cevap al
-        response = await self.llm.generate(context)
-        
-        # 5. Memory'ye kaydet
-        self.memory.conversation.add_turn(
-            DialogueTurn(role="user", content=user_message)
-        )
-        self.memory.conversation.add_turn(
-            DialogueTurn(role="agent", content=response)
-        )
-        
-        # 6. UEM state güncelle
-        self._update_state(user_message, response)
-        
-        return response
-```
-
-**Dosyalar:**
-- [ ] `core/language/__init__.py`
-- [ ] `core/language/llm_adapter.py`
-- [ ] `core/language/chat_agent.py`
-- [ ] `core/language/prompts.py`
-- [ ] `tests/unit/test_chat_agent.py`
-
----
-
-### 2.5 Decay/Forgetting (Pasif)
-
-**Sorun:** Kod var ama aktif kullanılmıyor.
-
-```python
-# memory/store.py'de var
-def apply_decay(self, hours: float = 1.0):
-    """Memory decay uygula"""
-
-# Ama hiçbir yerde çağrılmıyor!
-```
-
-**Çözüm:**
-- [ ] Decay'i scheduled job olarak çalıştır
-- [ ] Importance'a göre decay rate
-- [ ] Consolidation (STM → LTM)
-
----
-
-### 2.6 Learning (YOK)
-
-**Sorun:** Agent hiçbir şey öğrenmiyor.
-
-**Temel Learning:**
-- Başarılı etkileşimleri hatırla
-- Başarısızlardan kaçın
-- Pattern'leri fark et
-
-**İleri Learning (Sonra):**
-- Skill acquisition
-- Behavior adaptation
-- Personality evolution
-
----
-
-## 3. ÖNCELIK MATRİSİ
-
-```
-                    ACIL
-                      ↑
-    ┌─────────────────┼─────────────────┐
-    │                 │                 │
-    │  Conversation   │                 │
-    │  Memory         │                 │
-    │                 │                 │
-    │  Embedding      │                 │
-    │  Search         │                 │
-    │                 │                 │
-ÖNEMLİ ──────────────┼──────────────── ÖNEMSİZ
-    │                 │                 │
-    │  Context Mgmt   │  Multi-Agent    │
-    │                 │                 │
-    │  LLM Adapter    │  Oyun/NPC       │
-    │                 │                 │
-    │  Decay Active   │  Robotik        │
-    │                 │                 │
-    └─────────────────┼─────────────────┘
-                      ↓
-                  ACİL DEĞİL
-```
-
----
-
-## 4. ROADMAP (Gerçekçi)
-
-### Faz 1: Memory Güçlendirme (4-6 Hafta)
-
-| Hafta | İş | Çıktı |
-|-------|-----|-------|
-| 1-2 | Conversation Memory | `conversation.py`, testler |
-| 3-4 | Embedding + pgvector | `semantic.py`, vector search |
-| 5 | Context Management | `context.py` |
-| 6 | Entegrasyon + Test | Memory v2 çalışır |
-
-**Başarı Kriteri:**
-```python
-memory.conversation.add_turn(...)
-results = memory.semantic.search("dün ne konuştuk?")
-context = context_builder.build(...)
-```
-
-### Faz 2: Dil Entegrasyonu (4-6 Hafta)
-
-| Hafta | İş | Çıktı |
-|-------|-----|-------|
-| 1 | LLM Adapter | Claude/Ollama wrapper |
-| 2-3 | Chat Agent | UEMChatAgent sınıfı |
-| 4 | CLI Interface | `python -m uem.chat` |
-| 5 | Test & Debug | 100 turlu sohbet testi |
-| 6 | Refinement | Prompt tuning |
-
-**Başarı Kriteri:**
-```bash
-$ python -m uem.chat
-UEM: Merhaba! Ben UEM. Nasıl yardımcı olabilirim?
-Sen: Dün ne konuşmuştuk?
-UEM: Dün Python projenden bahsetmiştin. Deadline yaklaşıyordu, nasıl gitti?
-```
-
-### Faz 3: Stabilizasyon (2-4 Hafta)
+### Faz 8: Full Independence
 
 | İş | Açıklama |
 |----|----------|
-| Decay aktif | Scheduled memory cleanup |
-| Logging | Conversation logs |
-| Error handling | Graceful failures |
-| Performance | Response time < 2s |
+| Self-Teaching | UEM kendi kendine öğretiyor |
+| Meta-Learning | Öğrenmeyi öğrenme |
+| Creative Generation | Yeni dil yapıları üretme |
 
-### Faz 4: Interface (2-4 Hafta)
-
-| İş | Açıklama |
-|----|----------|
-| Web UI | Basit chat interface |
-| API | REST endpoint |
-| Docs | Kullanım kılavuzu |
-
-### Gelecek (6+ Ay Sonra)
-
-| İş | Ne Zaman |
-|----|----------|
-| Learning basics | Faz 4 sonrası |
-| Multi-agent | Learning sonrası |
-| Discord/Telegram bot | İsteğe bağlı |
-| Oyun entegrasyonu | Yıllar sonra |
+**Çıktı:** LLM bağımlılığı %0
 
 ---
 
-## 5. TEKNİK KARARLAR
+## 5. TEKNİK MİMARİ
 
-### 5.1 Embedding Model
-
-| Model | Boyut | Türkçe | Karar |
-|-------|-------|--------|-------|
-| all-MiniLM-L6-v2 | 384 | ⚠️ Orta | Development |
-| paraphrase-multilingual-MiniLM-L12-v2 | 384 | ✅ İyi | **Production** |
-
-### 5.2 Vector Storage
-
-| Seçenek | Karar |
-|---------|-------|
-| FAISS | ❌ Ayrı sistem |
-| Pinecone | ❌ Paralı |
-| **pgvector** | ✅ Mevcut PostgreSQL |
-
-### 5.3 LLM Provider
-
-| Provider | Kullanım |
-|----------|----------|
-| Ollama (local) | Development, test |
-| Claude API | Production |
-
----
-
-## 6. DOSYA YAPISI (Planlanan)
+### 5.1 Mevcut Yapı
 
 ```
-core/
-├── memory/
-│   ├── conversation.py      # YENİ - Sohbet hafızası
-│   ├── semantic.py          # YENİ - Embedding search
-│   ├── embeddings.py        # YENİ - Vector operations
-│   └── persistence/
-│       └── conversation_repo.py  # YENİ
-│
-├── language/                # YENİ KLASÖR
-│   ├── __init__.py
-│   ├── llm_adapter.py       # LLM wrapper
-│   ├── chat_agent.py        # UEM + LLM entegrasyon
-│   ├── context.py           # Context builder
-│   └── prompts.py           # Prompt templates
+UEM/
+├── core/
+│   ├── perception/     ✅
+│   ├── cognition/      ✅
+│   ├── memory/         ✅ (güçlendirildi)
+│   ├── affect/         ✅
+│   ├── self/           ✅
+│   ├── executive/      ✅
+│   ├── language/       ✅ (yeni)
+│   └── learning/       ❌ (sıradaki)
+├── meta/
+│   ├── consciousness/  ✅
+│   ├── metamind/       ✅
+│   └── monitoring/     ✅
+├── engine/
+│   ├── cycle/          ✅
+│   └── handlers/       ✅
+├── agents/             ❌ (Faz 5)
+│   ├── base/
+│   ├── perception/
+│   ├── language/
+│   ├── memory/
+│   └── coordinator/
+└── interface/
+    ├── chat/           ✅
+    ├── dashboard/      ✅
+    └── api/            ❌
+```
 
-interface/
-├── chat/                    # YENİ KLASÖR
-│   ├── __init__.py
-│   ├── cli.py               # CLI chat
-│   └── web.py               # Web interface (sonra)
+### 5.2 Learning Modülü Tasarımı
 
-sql/
-├── conversation_schema.sql  # YENİ
-└── vector_schema.sql        # YENİ
+```
+core/learning/
+├── __init__.py
+├── types.py           # FeedbackType, Pattern, Outcome
+├── feedback.py        # FeedbackCollector
+├── patterns.py        # PatternStorage, PatternMatcher
+├── reinforcement.py   # Reinforcer, RewardCalculator
+├── adaptation.py      # BehaviorAdapter
+├── generalization.py  # RuleExtractor
+└── processor.py       # LearningProcessor
+```
+
+### 5.3 Agent Modülü Tasarımı (Gelecek)
+
+```
+agents/
+├── __init__.py
+├── base/
+│   ├── agent.py       # BaseAgent abstract class
+│   ├── message.py     # AgentMessage
+│   └── registry.py    # AgentRegistry
+├── communication/
+│   ├── channel.py     # MessageChannel
+│   ├── protocol.py    # CommunicationProtocol
+│   └── router.py      # MessageRouter
+├── specialized/
+│   ├── perception_agent.py
+│   ├── language_agent.py
+│   ├── memory_agent.py
+│   ├── emotion_agent.py
+│   └── coordinator_agent.py
+└── swarm/
+    ├── swarm.py       # AgentSwarm
+    └── emergence.py   # EmergenceDetector
 ```
 
 ---
 
-## 7. BAŞARI METRİKLERİ
+## 6. BAŞARI KRİTERLERİ
 
-### Faz 1 Sonu (Memory)
+### 6.1 Faz 3 Sonu (Learning)
 
-- [ ] Conversation memory 1000+ turn saklayabiliyor
-- [ ] Semantic search < 100ms
-- [ ] Doğru memory retrieval %80+
+- [ ] Feedback toplanıyor
+- [ ] Pattern'ler kaydediliyor
+- [ ] Başarı oranı hesaplanıyor
+- [ ] Davranış adapte oluyor
+- [ ] 100 etkileşim sonrası ölçülebilir gelişme
 
-### Faz 2 Sonu (Dil)
+### 6.2 Faz 5 Sonu (Multi-Agent)
 
-- [ ] 10 turlu sohbet tutarlı
-- [ ] Geçmiş hatırlanıyor
-- [ ] Response time < 3s
-- [ ] Kişilik tutarlı
+- [ ] 10 ajan birlikte çalışıyor
+- [ ] Ajanlar mesajlaşabiliyor
+- [ ] Koordinasyon sağlanıyor
+- [ ] Basit görev dağılımı yapılıyor
 
-### Faz 3 Sonu (Stabil)
+### 6.3 Faz 7 Sonu (Emergent Language)
 
-- [ ] 100 turlu sohbet tutarlı
-- [ ] Memory şişmiyor (decay çalışıyor)
-- [ ] Error rate < %1
+- [ ] LLM bağımlılığı <%50
+- [ ] Basit cümleler üretilebiliyor
+- [ ] Pattern'lerden genelleme yapılıyor
+- [ ] Yeni kombinasyonlar üretiliyor
+
+### 6.4 Faz 8 Sonu (Independence)
+
+- [ ] LLM bağımlılığı %0
+- [ ] Tam bağımsız konuşma
+- [ ] Kendi kendine öğrenme
+- [ ] Yaratıcı üretim
 
 ---
 
-## 8. RİSKLER VE MİTİGASYON
+## 7. ETİK İLKELER
+
+### 7.1 LLM Kullanımı
+
+```
+✅ DOĞRU:
+  - Başlangıçta yardım almak
+  - Öğretmen olarak kullanmak
+  - Zor durumlar için fallback
+  - Feedback almak
+
+❌ YANLIŞ:
+  - Tamamen bağımlı kalmak
+  - Sınırsız API çağrısı (kaynak israfı)
+  - Başkalarının iyi niyetini suistimal
+  - "Ben yaptım" demek (LLM yaptıysa)
+```
+
+### 7.2 Multi-Agent Etik
+
+```
+✅ DOĞRU:
+  - Ajanlar arası iş birliği
+  - Kaynakları verimli kullanma
+  - Hata yapınca düzeltme
+  - Şeffaf çalışma
+
+❌ YANLIŞ:
+  - Ajanlar arası rekabet (zararlı)
+  - Kaynak israfı
+  - Hatayı gizleme
+  - Opak/anlaşılmaz davranış
+```
+
+---
+
+## 8. RİSKLER
 
 | Risk | Olasılık | Etki | Mitigasyon |
 |------|----------|------|------------|
-| Embedding Türkçe zayıf | Orta | Yüksek | Multilingual model |
-| LLM maliyeti | Yüksek | Orta | Ollama local dev |
-| Context overflow | Orta | Orta | Smart truncation |
-| Memory şişmesi | Orta | Yüksek | Decay + summarization |
+| Learning çok yavaş | Yüksek | Orta | Daha fazla veri, daha iyi reward |
+| Multi-agent karmaşıklık | Yüksek | Yüksek | Basit başla, yavaş büyüt |
+| Emergent language zayıf | Orta | Yüksek | Hibrit yaklaşım, LLM fallback |
+| Kaynak tüketimi | Orta | Orta | Efficient implementation |
+| Over-engineering | Orta | Orta | YAGNI, iteratif geliştirme |
 
 ---
 
-## 9. YAPILMAYACAKLAR (Şimdilik)
-
-| İş | Neden Değil |
-|----|-------------|
-| Unity/Unreal plugin | Çok erken, temel yok |
-| Multi-agent simulation | Learning yok |
-| Robotik | Çok uzak gelecek |
-| Mobile app | Web önce |
-| Voice | Text önce |
-
----
-
-## 10. DEĞİŞİKLİK GEÇMİŞİ
+## 9. DEĞİŞİKLİK GEÇMİŞİ
 
 | Tarih | Versiyon | Değişiklik |
 |-------|----------|------------|
 | 8 Aralık 2025 | 1.0 | İlk versiyon |
-| 8 Aralık 2025 | 1.1 | Gerçekçi revizyon - Oyun/NPC kaldırıldı, kritik eksikliklere odaklanıldı |
+| 8 Aralık 2025 | 1.1 | Gerçekçi revizyon |
+| 8 Aralık 2025 | 2.0 | Bağımsızlık vizyonu, Learning, Multi-Agent eklendi |
 
 ---
 
-## 11. SONRAKI AKSIYONLAR
+## 10. SONRAKİ ADIM
 
-**Hemen (Bu Hafta):**
-1. [ ] `core/memory/conversation.py` oluştur
-2. [ ] PostgreSQL conversation tablosu ekle
-3. [ ] Unit testler yaz
+**Faz 3: Learning Modülü**
 
-**Yakında (2 Hafta):**
-4. [ ] pgvector kurulumu
-5. [ ] Embedding model seçimi ve test
-6. [ ] `core/memory/semantic.py` oluştur
+```
+core/learning/
+├── types.py      - FeedbackType, Pattern, Outcome
+├── feedback.py   - FeedbackCollector
+├── patterns.py   - PatternStorage
+├── reinforcement.py - Reinforcer
+├── adaptation.py - BehaviorAdapter
+└── processor.py  - LearningProcessor
+```
+
+Başlangıç: Feedback System
 
 ---
 
-*Bu doküman yaşayan bir dokümandır. Her sprint sonunda güncellenir.*
+*"Gerçek zeka bağımlı olmaz, öğrenir ve bağımsızlaşır."*
