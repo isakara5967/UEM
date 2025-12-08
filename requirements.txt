@@ -2,9 +2,12 @@
 
 # Core - Built-in Python, no external deps needed for basic functionality
 
+# PostgreSQL Persistence
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+
 # Future - when needed:
 # pyyaml>=6.0        # Config files
-# psycopg2>=2.9      # PostgreSQL
 # rich>=13.0         # Better CLI output
 # fastapi>=0.100     # API
 # uvicorn>=0.22      # ASGI server
