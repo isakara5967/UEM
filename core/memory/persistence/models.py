@@ -287,8 +287,8 @@ class InteractionModel(Base):
     occurred_at = Column(DateTime(timezone=True), default=func.now())
     created_at = Column(DateTime(timezone=True), default=func.now())
 
-    # Relationships
-    relationship = relationship("RelationshipModel", back_populates="interactions")
+    # Relationships (note: attribute named 'rel' to avoid collision with relationship() function)
+    rel = relationship("RelationshipModel", back_populates="interactions")
     episode = relationship("EpisodeModel", back_populates="interactions")
 
     __table_args__ = (
@@ -441,8 +441,8 @@ class TrustHistoryModel(Base):
 
     recorded_at = Column(DateTime(timezone=True), default=func.now())
 
-    # Relationships
-    relationship = relationship("RelationshipModel", back_populates="trust_history")
+    # Relationships (note: attribute named 'rel' to avoid collision with relationship() function)
+    rel = relationship("RelationshipModel", back_populates="trust_history")
 
     __table_args__ = (
         CheckConstraint("trust_value >= 0 AND trust_value <= 1"),

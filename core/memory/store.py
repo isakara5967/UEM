@@ -3,11 +3,16 @@ core/memory/store.py
 
 Ana memory store - tum alt sistemleri koordine eder.
 UEM v2 - Facade pattern ile unified memory interface.
+
+PostgreSQL persistence integration:
+- DB varsa hem in-memory hem DB'ye yazar
+- DB yoksa graceful fallback ile sadece in-memory calısır
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from datetime import datetime, timedelta
+from uuid import UUID
 import logging
 
 from .types import (
@@ -19,6 +24,17 @@ from .types import (
     WorkingMemoryItem, SensoryTrace,
     ConsolidationTask,
 )
+
+# PostgreSQL persistence - graceful import
+try:
+    from .persistence.repository import MemoryRepository, get_session, get_engine
+    from .persistence.models import (
+        EpisodeModel, RelationshipModel, InteractionModel,
+        EpisodeTypeEnum, RelationshipTypeEnum, InteractionTypeEnum,
+    )
+    PERSISTENCE_AVAILABLE = True
+except ImportError:
+    PERSISTENCE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -90,12 +106,266 @@ class MemoryStore:
             "total_relationships": 0,
             "total_retrievals": 0,
             "consolidations": 0,
+            "db_writes": 0,
+            "db_errors": 0,
         }
 
-        # Persistence (lazy init) - disabled for now
-        self._repository = None
+        # PostgreSQL persistence - graceful init
+        self._repository: Optional['MemoryRepository'] = None
+        self._db_session = None
+        self._db_available = False
+        self._init_repository()
 
-        logger.info("MemoryStore initialized")
+        logger.info(
+            f"MemoryStore initialized (persistence: {self._db_available})"
+        )
+
+    # ===================================================================
+    # POSTGRESQL PERSISTENCE
+    # ===================================================================
+
+    def _init_repository(self) -> None:
+        """
+        Initialize PostgreSQL repository with graceful fallback.
+
+        DB yoksa veya baglanti basarisizsa:
+        - Hata vermez, sadece log'lar
+        - In-memory devam eder
+        """
+        if not self.config.use_persistence:
+            logger.debug("Persistence disabled in config")
+            return
+
+        if not PERSISTENCE_AVAILABLE:
+            logger.warning(
+                "PostgreSQL persistence not available (sqlalchemy/psycopg2 not installed). "
+                "Continuing with in-memory only."
+            )
+            return
+
+        try:
+            # Get connection string from config or default
+            db_url = self.config.db_connection_string or None
+
+            # Try to create engine and session
+            engine = get_engine(db_url)
+            self._db_session = get_session(engine)
+            self._repository = MemoryRepository(self._db_session)
+            self._db_available = True
+
+            logger.info("PostgreSQL persistence initialized successfully")
+
+        except Exception as e:
+            logger.warning(
+                f"PostgreSQL connection failed: {e}. "
+                "Continuing with in-memory only."
+            )
+            self._repository = None
+            self._db_session = None
+            self._db_available = False
+
+    def _persist_episode(self, episode: Episode) -> bool:
+        """
+        Episode'u PostgreSQL'e kaydet.
+
+        Returns:
+            True if saved, False if failed or DB not available
+        """
+        if not self._db_available or not self._repository:
+            return False
+
+        try:
+            # Convert domain type to SQLAlchemy model
+            model = EpisodeModel(
+                id=UUID(episode.id),
+                what=episode.what,
+                location=episode.where,
+                occurred_at=episode.when,
+                participants=episode.who,
+                why=episode.why,
+                how=episode.how,
+                episode_type=EpisodeTypeEnum(episode.episode_type.value),
+                duration_seconds=episode.duration_seconds,
+                outcome=episode.outcome,
+                outcome_valence=episode.outcome_valence,
+                self_emotion_during=episode.self_emotion_during,
+                self_emotion_after=episode.self_emotion_after,
+                pleasure=episode.pad_state.get("pleasure") if episode.pad_state else None,
+                arousal=episode.pad_state.get("arousal") if episode.pad_state else None,
+                dominance=episode.pad_state.get("dominance") if episode.pad_state else None,
+                strength=episode.strength,
+                importance=episode.importance,
+                emotional_valence=episode.emotional_valence,
+                emotional_arousal=episode.emotional_arousal,
+                tags=episode.tags,
+                context=episode.context,
+            )
+
+            self._repository.save_episode(model)
+            self._stats["db_writes"] += 1
+            logger.debug(f"Episode persisted to DB: {episode.id}")
+            return True
+
+        except Exception as e:
+            self._stats["db_errors"] += 1
+            logger.warning(f"Failed to persist episode {episode.id}: {e}")
+            return False
+
+    def _persist_relationship(self, record: RelationshipRecord) -> bool:
+        """
+        Relationship'i PostgreSQL'e kaydet veya guncelle.
+
+        Returns:
+            True if saved, False if failed or DB not available
+        """
+        if not self._db_available or not self._repository:
+            return False
+
+        try:
+            # Get or create in DB
+            db_rel = self._repository.get_or_create_relationship(record.agent_id)
+
+            # Update fields
+            db_rel.agent_name = record.agent_name or db_rel.agent_name
+            db_rel.relationship_type = RelationshipTypeEnum(record.relationship_type.value)
+            db_rel.total_interactions = record.total_interactions
+            db_rel.positive_interactions = record.positive_interactions
+            db_rel.negative_interactions = record.negative_interactions
+            db_rel.neutral_interactions = record.neutral_interactions
+            db_rel.trust_score = record.trust_score
+            db_rel.betrayal_count = record.betrayal_count
+            db_rel.last_betrayal = record.last_betrayal
+            db_rel.overall_sentiment = record.overall_sentiment
+            db_rel.last_interaction = record.last_interaction
+            if record.last_interaction_type:
+                db_rel.last_interaction_type = InteractionTypeEnum(record.last_interaction_type.value)
+            db_rel.strength = record.strength
+            db_rel.importance = record.importance
+            db_rel.notes = record.notes
+
+            self._repository.session.commit()
+            self._stats["db_writes"] += 1
+            logger.debug(f"Relationship persisted to DB: {record.agent_id}")
+            return True
+
+        except Exception as e:
+            self._stats["db_errors"] += 1
+            logger.warning(f"Failed to persist relationship {record.agent_id}: {e}")
+            try:
+                self._repository.session.rollback()
+            except Exception:
+                pass
+            return False
+
+    def _persist_interaction(
+        self,
+        agent_id: str,
+        interaction: Interaction,
+    ) -> bool:
+        """
+        Interaction'ı PostgreSQL'e kaydet.
+
+        Returns:
+            True if saved, False if failed or DB not available
+        """
+        if not self._db_available or not self._repository:
+            return False
+
+        try:
+            # Get relationship from DB
+            db_rel = self._repository.get_or_create_relationship(agent_id)
+
+            # Create interaction model
+            model = InteractionModel(
+                relationship_id=db_rel.id,
+                episode_id=UUID(interaction.episode_id) if interaction.episode_id else None,
+                interaction_type=InteractionTypeEnum(interaction.interaction_type.value),
+                context=interaction.context,
+                outcome=interaction.outcome,
+                outcome_valence=interaction.outcome_valence,
+                emotional_impact=interaction.emotional_impact,
+                trust_impact=interaction.trust_impact,
+                occurred_at=interaction.timestamp,
+            )
+
+            self._repository.save_interaction(model)
+
+            # Also update relationship stats
+            self._repository.update_relationship_stats(
+                agent_id=agent_id,
+                interaction_type=InteractionTypeEnum(interaction.interaction_type.value),
+                trust_delta=interaction.trust_impact,
+            )
+
+            self._stats["db_writes"] += 1
+            logger.debug(f"Interaction persisted to DB for agent: {agent_id}")
+            return True
+
+        except Exception as e:
+            self._stats["db_errors"] += 1
+            logger.warning(f"Failed to persist interaction for {agent_id}: {e}")
+            try:
+                self._repository.session.rollback()
+            except Exception:
+                pass
+            return False
+
+    def _load_relationship_from_db(self, agent_id: str) -> Optional[RelationshipRecord]:
+        """
+        DB'den relationship yükle.
+
+        Returns:
+            RelationshipRecord if found, None otherwise
+        """
+        if not self._db_available or not self._repository:
+            return None
+
+        try:
+            db_rel = self._repository.get_relationship_by_agent(agent_id)
+            if not db_rel:
+                return None
+
+            # Convert to domain type
+            record = RelationshipRecord(
+                id=str(db_rel.id),
+                agent_id=db_rel.agent_id,
+                agent_name=db_rel.agent_name or "",
+                relationship_type=RelationshipType(db_rel.relationship_type.value),
+                relationship_start=db_rel.relationship_start or datetime.now(),
+                total_interactions=db_rel.total_interactions or 0,
+                positive_interactions=db_rel.positive_interactions or 0,
+                negative_interactions=db_rel.negative_interactions or 0,
+                neutral_interactions=db_rel.neutral_interactions or 0,
+                trust_score=db_rel.trust_score or 0.5,
+                betrayal_count=db_rel.betrayal_count or 0,
+                last_betrayal=db_rel.last_betrayal,
+                overall_sentiment=db_rel.overall_sentiment or 0.0,
+                last_interaction=db_rel.last_interaction,
+                last_interaction_type=InteractionType(db_rel.last_interaction_type.value) if db_rel.last_interaction_type else None,
+                strength=db_rel.strength or 1.0,
+                importance=db_rel.importance or 0.5,
+                notes=db_rel.notes or [],
+            )
+
+            logger.debug(f"Relationship loaded from DB: {agent_id}")
+            return record
+
+        except Exception as e:
+            logger.warning(f"Failed to load relationship {agent_id} from DB: {e}")
+            return None
+
+    def close(self) -> None:
+        """Close database session if open."""
+        if self._db_session:
+            try:
+                self._db_session.close()
+                logger.debug("Database session closed")
+            except Exception as e:
+                logger.warning(f"Error closing database session: {e}")
+            finally:
+                self._db_session = None
+                self._repository = None
+                self._db_available = False
 
     # ===================================================================
     # SENSORY BUFFER
@@ -184,17 +454,23 @@ class MemoryStore:
         """
         Episode kaydet.
 
+        Hem in-memory hem PostgreSQL'e kaydeder (DB varsa).
+
         Returns:
             Episode ID
         """
+        # 1. In-memory kayıt (her zaman)
         self._episodes[episode.id] = episode
         self._stats["total_episodes"] += 1
 
-        # Iliskili agent'larin relationship'lerini guncelle
+        # 2. PostgreSQL kayıt (varsa)
+        self._persist_episode(episode)
+
+        # 3. Iliskili agent'larin relationship'lerini guncelle
         for agent_id in episode.who:
             self._update_relationship_from_episode(agent_id, episode)
 
-        # Duygusal yogunluk yuksekse emotional memory olustur
+        # 4. Duygusal yogunluk yuksekse emotional memory olustur
         if abs(episode.emotional_valence) > 0.6 or episode.emotional_arousal > 0.7:
             self._create_emotional_memory_from_episode(episode)
 
@@ -293,15 +569,34 @@ class MemoryStore:
         Agent ile iliski kaydini getir (yoksa olustur).
 
         Trust modulu bu metodu kullanmali!
-        """
-        if agent_id not in self._relationships:
-            self._relationships[agent_id] = RelationshipRecord(
-                agent_id=agent_id,
-                relationship_type=RelationshipType.STRANGER,
-            )
-            self._stats["total_relationships"] += 1
 
-        return self._relationships[agent_id]
+        Sıralama:
+        1. In-memory'de varsa döndür
+        2. DB'de varsa yükle ve in-memory'ye de koy
+        3. Hiçbir yerde yoksa yeni oluştur
+        """
+        # 1. In-memory'de var mı?
+        if agent_id in self._relationships:
+            return self._relationships[agent_id]
+
+        # 2. DB'den yüklemeyi dene
+        db_record = self._load_relationship_from_db(agent_id)
+        if db_record:
+            self._relationships[agent_id] = db_record
+            return db_record
+
+        # 3. Yeni oluştur
+        new_record = RelationshipRecord(
+            agent_id=agent_id,
+            relationship_type=RelationshipType.STRANGER,
+        )
+        self._relationships[agent_id] = new_record
+        self._stats["total_relationships"] += 1
+
+        # DB'ye de kaydet
+        self._persist_relationship(new_record)
+
+        return new_record
 
     def update_relationship(
         self,
@@ -328,9 +623,18 @@ class MemoryStore:
         Agent ile etkilesim kaydet.
 
         Trust modulu her trust event'i burada da kaydetmeli!
+
+        Hem in-memory hem PostgreSQL'e kaydeder (DB varsa).
         """
+        # 1. In-memory kayıt
         record = self.get_relationship(agent_id)
         record.add_interaction(interaction)
+
+        # 2. PostgreSQL kayıt (varsa)
+        self._persist_interaction(agent_id, interaction)
+
+        # 3. Relationship'in güncel halini de DB'ye kaydet
+        self._persist_relationship(record)
 
         return record
 
