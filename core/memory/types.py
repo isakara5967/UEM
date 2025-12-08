@@ -640,3 +640,27 @@ class Conversation(MemoryItem):
             role_label = "User" if turn.role == "user" else "Agent"
             lines.append(f"[{role_label}]: {turn.content}")
         return "\n".join(lines)
+
+
+# ========================================================================
+# EMBEDDING TYPES
+# ========================================================================
+
+class EmbeddingModel(str, Enum):
+    """Desteklenen embedding modelleri."""
+    MULTILINGUAL_MINILM = "paraphrase-multilingual-MiniLM-L12-v2"
+    MINILM_L6 = "all-MiniLM-L6-v2"
+    MPNET_BASE = "all-mpnet-base-v2"
+
+
+@dataclass
+class EmbeddingConfig:
+    """Embedding encoder yapilandirmasi."""
+
+    model_name: str = EmbeddingModel.MULTILINGUAL_MINILM.value
+    dimension: int = 384                  # Model output boyutu
+    batch_size: int = 32                  # Batch encoding icin
+    cache_enabled: bool = True            # Embedding cache
+    cache_max_size: int = 10000           # Maksimum cache boyutu
+    lazy_load: bool = True                # Model lazy loading
+    normalize_embeddings: bool = True     # L2 normalizasyon

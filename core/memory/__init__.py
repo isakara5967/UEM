@@ -40,6 +40,7 @@ from .types import (
     RelationshipType,
     InteractionType,
     EpisodeType,
+    EmbeddingModel,
 
     # Base
     MemoryItem,
@@ -75,6 +76,9 @@ from .types import (
     # Query
     MemoryQuery,
     RetrievalResult,
+
+    # Embedding
+    EmbeddingConfig,
 )
 
 # Store - ana koordinator
@@ -95,6 +99,19 @@ from .conversation import (
     reset_conversation_memory,
 )
 
+# Embeddings
+from .embeddings import (
+    EmbeddingEncoder,
+    get_embedding_encoder,
+    create_embedding_encoder,
+    reset_embedding_encoder,
+    cosine_similarity,
+    batch_cosine_similarity,
+    top_k_indices,
+    euclidean_distance,
+    normalize_vector,
+)
+
 __all__ = [
     # Enums
     "MemoryType",
@@ -102,6 +119,7 @@ __all__ = [
     "RelationshipType",
     "InteractionType",
     "EpisodeType",
+    "EmbeddingModel",
 
     # Base
     "MemoryItem",
@@ -142,6 +160,18 @@ __all__ = [
     # Query
     "MemoryQuery",
     "RetrievalResult",
+
+    # Embeddings
+    "EmbeddingConfig",
+    "EmbeddingEncoder",
+    "get_embedding_encoder",
+    "create_embedding_encoder",
+    "reset_embedding_encoder",
+    "cosine_similarity",
+    "batch_cosine_similarity",
+    "top_k_indices",
+    "euclidean_distance",
+    "normalize_vector",
 
     # Store
     "MemoryStore",
