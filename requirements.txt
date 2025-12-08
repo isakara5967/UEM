@@ -6,6 +6,9 @@
 sqlalchemy>=2.0
 psycopg2-binary>=2.9
 
+# Dashboard
+streamlit>=1.28
+
 # Future - when needed:
 # pyyaml>=6.0        # Config files
 # rich>=13.0         # Better CLI output
