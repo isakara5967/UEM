@@ -381,9 +381,14 @@ def test_threat_scenario():
     result = cycle.run(stimulus=stimulus, initial_state=initial_state)
     
     print_state_vector(result.state_vector, "After cycle")
-    
-    # Threat algılanmış olmalı
-    assert result.state_vector.threat > 0.5, "Threat should be detected"
+
+    # Threat PERCEIVE aşamasında algılanmış olmalı
+    perceive_result = result.phase_results.get(Phase.PERCEIVE)
+    threat_level = perceive_result.output.get("threat_level", 0) if perceive_result else 0
+    assert threat_level > 0.5, f"Threat should be detected in PERCEIVE (got {threat_level})"
+
+    # NOT: flee aksiyonu uygulandığında state.threat azalır (uzaklaştık mantığı)
+    # Bu yüzden final threat 0.5 olabilir, ama algılama başarılı olmuştur
     
     # Karar flee veya avoid olmalı
     decide_result = result.phase_results.get(Phase.DECIDE)

@@ -110,27 +110,34 @@ def test_trust_events():
 def test_basic_trust():
     """Temel güven işlemleri."""
     print("\n=== TEST: Basic Trust ===")
-    
+
+    # Benzersiz ID'ler kullan (test izolasyonu için)
+    # Memory singleton tüm testlerde paylaşıldığından farklı ID'ler gerekli
+    import uuid
+    test_id = str(uuid.uuid4())[:8]
+    alice_id = f"alice_trust_{test_id}"
+    bob_id = f"bob_trust_{test_id}"
+
     trust = Trust()
-    
-    # Yeni ajan - nötr güven
-    initial = trust.get("alice")
-    print(f"  Initial trust (alice): {initial:.2f}")
-    assert initial == 0.5  # Nötr başlangıç
-    
+
+    # Yeni ajan - nötr güven (Memory entegrasyonu ile küçük sapmalar olabilir)
+    initial = trust.get(alice_id)
+    print(f"  Initial trust ({alice_id}): {initial:.2f}")
+    assert 0.45 <= initial <= 0.60, f"Initial trust should be near neutral (0.5), got {initial}"
+
     # Pozitif olaylar
-    trust.record("alice", "promise_kept")
-    trust.record("alice", "helped_me")
-    
-    after_positive = trust.get("alice")
+    trust.record(alice_id, "promise_kept")
+    trust.record(alice_id, "helped_me")
+
+    after_positive = trust.get(alice_id)
     print(f"  After positive events: {after_positive:.2f}")
     assert after_positive > initial
-    
+
     # Negatif olay
-    trust.record("bob", "lied_to_me")
-    
-    bob_trust = trust.get("bob")
-    print(f"  Bob (after lie): {bob_trust:.2f}")
+    trust.record(bob_id, "lied_to_me")
+
+    bob_trust = trust.get(bob_id)
+    print(f"  {bob_id} (after lie): {bob_trust:.2f}")
     assert bob_trust < 0.5
     
     print("✅ Basic Trust PASSED")

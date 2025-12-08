@@ -9,6 +9,7 @@ Kurulumdan sonra çalıştır:
 import sys
 sys.path.insert(0, '.')
 
+from foundation.state import StateVector
 from core.affect.emotion.core import PADState, BasicEmotion, get_emotion_pad
 
 from core.affect.social import (
@@ -300,12 +301,12 @@ def test_pad_effect():
     
     print(f"  Self PAD before: P={my_pad.pleasure:.2f}")
     
-    if result.self_pad_effect:
-        print(f"  Self PAD effect: P={result.self_pad_effect.pleasure:.2f}")
-        
+    if result.self_pad_after:
+        print(f"  Self PAD after: P={result.self_pad_after.pleasure:.2f}")
+
         # Compassion negatif pleasure etkisi yapmalı
         if result.sympathy.dominant_sympathy == SympathyType.COMPASSION:
-            assert result.self_pad_effect.pleasure <= my_pad.pleasure, \
+            assert result.self_pad_after.pleasure <= my_pad.pleasure, \
                 "Compassion should have negative pleasure effect"
     
     print("✅ PAD Effect PASSED")
@@ -409,7 +410,8 @@ def test_factory_functions():
     
     # process_social_affect
     agent = AgentState(agent_id="factory_test", situation="neutral")
-    result = process_social_affect(agent, PADState.neutral())
+    state_vector = StateVector()  # StateVector kullan, PADState değil
+    result = process_social_affect(agent, state_vector)
     assert result is not None
     print("  ✓ process_social_affect() works")
     
