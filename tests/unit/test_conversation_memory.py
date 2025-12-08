@@ -78,7 +78,7 @@ class TestDialogueTurn:
         assert turn.emotional_valence == 0.0
         assert turn.emotional_arousal == 0.0
         assert turn.topics == []
-        assert turn.metadata == {}
+        assert turn.extra_data == {}
 
     def test_dialogue_turn_with_topics(self):
         """Konu etiketleri."""

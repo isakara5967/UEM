@@ -678,7 +678,7 @@ class DialogueTurnModel(Base):
     embedding = Column(ARRAY(Float))
 
     # Meta
-    metadata = Column(JSONB, default={})
+    extra_data = Column(JSONB, default={})
 
     created_at = Column(DateTime(timezone=True), default=func.now())
 

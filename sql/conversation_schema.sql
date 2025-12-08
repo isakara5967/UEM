@@ -98,7 +98,7 @@ CREATE TABLE dialogue_turns (
     embedding FLOAT[],
 
     -- Meta
-    metadata JSONB DEFAULT '{}',
+    extra_data JSONB DEFAULT '{}',
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
