@@ -338,11 +338,71 @@ class MemoryRepository:
     # INTERACTIONS
     # ═══════════════════════════════════════════════════════════════════
 
-    def save_interaction(self, interaction: InteractionModel) -> InteractionModel:
-        """Save an interaction."""
+    def save_interaction(
+        self,
+        interaction: InteractionModel,
+        update_relationship: bool = True,
+    ) -> InteractionModel:
+        """
+        Save an interaction and optionally update relationship stats.
+
+        Args:
+            interaction: The interaction to save
+            update_relationship: If True, updates relationship trust_score with trust_impact
+
+        Returns:
+            Saved interaction
+        """
         self.session.add(interaction)
         self.session.commit()
         self.session.refresh(interaction)
+
+        # Update relationship trust_score if trust_impact is set
+        if update_relationship and interaction.trust_impact:
+            relationship = self.session.query(RelationshipModel).filter(
+                RelationshipModel.id == interaction.relationship_id
+            ).first()
+
+            if relationship:
+                # Apply trust_impact to trust_score
+                new_trust = relationship.trust_score + interaction.trust_impact
+                relationship.trust_score = max(0.0, min(1.0, new_trust))
+
+                # Update interaction counts
+                relationship.total_interactions += 1
+                relationship.last_interaction = interaction.occurred_at
+                relationship.last_interaction_type = interaction.interaction_type
+
+                # Categorize interaction
+                positive_types = {
+                    InteractionTypeEnum.helped, InteractionTypeEnum.cooperated,
+                    InteractionTypeEnum.shared, InteractionTypeEnum.protected,
+                    InteractionTypeEnum.celebrated, InteractionTypeEnum.comforted,
+                }
+                negative_types = {
+                    InteractionTypeEnum.harmed, InteractionTypeEnum.betrayed,
+                    InteractionTypeEnum.threatened, InteractionTypeEnum.attacked,
+                }
+
+                if interaction.interaction_type in positive_types:
+                    relationship.positive_interactions += 1
+                elif interaction.interaction_type in negative_types:
+                    relationship.negative_interactions += 1
+                    if interaction.interaction_type == InteractionTypeEnum.betrayed:
+                        relationship.betrayal_count += 1
+                        relationship.last_betrayal = interaction.occurred_at
+                else:
+                    relationship.neutral_interactions += 1
+
+                # Update sentiment
+                total = relationship.total_interactions
+                if total > 0:
+                    relationship.overall_sentiment = (
+                        (relationship.positive_interactions - relationship.negative_interactions) / total
+                    )
+
+                self.session.commit()
+
         return interaction
 
     def find_interactions_for_relationship(
