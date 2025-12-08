@@ -41,6 +41,7 @@ from .types import (
     InteractionType,
     EpisodeType,
     EmbeddingModel,
+    SourceType,
 
     # Base
     MemoryItem,
@@ -79,6 +80,7 @@ from .types import (
 
     # Embedding
     EmbeddingConfig,
+    EmbeddingResult,
 )
 
 # Store - ana koordinator
@@ -112,6 +114,14 @@ from .embeddings import (
     normalize_vector,
 )
 
+# Semantic memory
+from .semantic import (
+    SemanticMemory,
+    get_semantic_memory,
+    create_semantic_memory,
+    reset_semantic_memory,
+)
+
 __all__ = [
     # Enums
     "MemoryType",
@@ -120,6 +130,7 @@ __all__ = [
     "InteractionType",
     "EpisodeType",
     "EmbeddingModel",
+    "SourceType",
 
     # Base
     "MemoryItem",
@@ -163,6 +174,7 @@ __all__ = [
 
     # Embeddings
     "EmbeddingConfig",
+    "EmbeddingResult",
     "EmbeddingEncoder",
     "get_embedding_encoder",
     "create_embedding_encoder",
@@ -172,6 +184,12 @@ __all__ = [
     "top_k_indices",
     "euclidean_distance",
     "normalize_vector",
+
+    # Semantic Memory
+    "SemanticMemory",
+    "get_semantic_memory",
+    "create_semantic_memory",
+    "reset_semantic_memory",
 
     # Store
     "MemoryStore",

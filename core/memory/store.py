@@ -26,6 +26,7 @@ from .types import (
     Conversation, DialogueTurn,
 )
 from .conversation import ConversationMemory, ConversationConfig
+from .semantic import SemanticMemory
 
 # PostgreSQL persistence - graceful import
 try:
@@ -115,6 +116,9 @@ class MemoryStore:
             session_timeout_minutes=self.config.conversation_session_timeout_min,
         )
         self.conversation = ConversationMemory(conv_config)
+
+        # Semantic memory subsystem
+        self.semantic = SemanticMemory()
 
         # Stats
         self._stats = {
@@ -995,6 +999,7 @@ class MemoryStore:
             "concepts_count": len(self._concepts),
             "consolidation_queue_size": len(self._consolidation_queue),
             **{f"conversation_{k}": v for k, v in self.conversation.stats.items()},
+            **{f"semantic_{k}": v for k, v in self.semantic.stats.items()},
         }
 
     def debug_dump(self) -> Dict[str, Any]:

@@ -653,6 +653,14 @@ class EmbeddingModel(str, Enum):
     MPNET_BASE = "all-mpnet-base-v2"
 
 
+class SourceType(str, Enum):
+    """Semantic memory kaynak turu."""
+    EPISODE = "episode"
+    DIALOGUE = "dialogue"
+    FACT = "fact"
+    CONCEPT = "concept"
+
+
 @dataclass
 class EmbeddingConfig:
     """Embedding encoder yapilandirmasi."""
@@ -664,3 +672,16 @@ class EmbeddingConfig:
     cache_max_size: int = 10000           # Maksimum cache boyutu
     lazy_load: bool = True                # Model lazy loading
     normalize_embeddings: bool = True     # L2 normalizasyon
+
+
+@dataclass
+class EmbeddingResult:
+    """Semantic search sonucu."""
+
+    id: str
+    content: str
+    similarity: float
+    source_type: SourceType
+    source_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    extra_data: Dict[str, Any] = field(default_factory=dict)
