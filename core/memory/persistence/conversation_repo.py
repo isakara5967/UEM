@@ -191,7 +191,7 @@ class ConversationRepository:
         detected_emotion: Optional[str] = None,
         intent: Optional[str] = None,
         topics: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        extra_data: Optional[Dict[str, Any]] = None,
     ) -> Optional[DialogueTurnModel]:
         """Add a turn to a conversation."""
         conversation = self.get_conversation_by_session(session_id)
@@ -212,7 +212,7 @@ class ConversationRepository:
             detected_emotion=detected_emotion,
             intent=intent,
             topics=topics or [],
-            metadata=metadata or {},
+            extra_data=extra_data or {},
         )
 
         self.session.add(turn)

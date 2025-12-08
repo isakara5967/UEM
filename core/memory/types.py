@@ -536,7 +536,7 @@ class DialogueTurn:
     embedding: Optional[List[float]] = None
 
     # Meta
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    extra_data: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

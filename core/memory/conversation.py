@@ -197,7 +197,7 @@ class ConversationMemory:
         detected_emotion: Optional[str] = None,
         intent: Optional[str] = None,
         topics: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        extra_data: Optional[Dict[str, Any]] = None,
     ) -> Optional[DialogueTurn]:
         """
         Sohbete yeni tur ekle.
@@ -211,7 +211,7 @@ class ConversationMemory:
             detected_emotion: Tespit edilen duygu
             intent: Niyet (question, statement, request, etc.)
             topics: Konular
-            metadata: Ek bilgiler
+            extra_data: Ek bilgiler
 
         Returns:
             Eklenen DialogueTurn veya None
@@ -240,7 +240,7 @@ class ConversationMemory:
             detected_emotion=detected_emotion,
             intent=intent,
             topics=topics or [],
-            metadata=metadata or {},
+            extra_data=extra_data or {},
         )
 
         # Conversation'a ekle
