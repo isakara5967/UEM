@@ -51,6 +51,9 @@ class CLIChat:
         /stats   - Session istatistikleri
         /debug   - Debug modunu ac/kapat
         /clear   - Ekrani temizle
+        /good, /+ - Pozitif feedback
+        /bad, /-  - Negatif feedback
+        /learned  - Ogrenilen pattern sayisi
     """
 
     def __init__(
@@ -162,6 +165,10 @@ class CLIChat:
         """
         debug_parts = []
 
+        # Show source (llm or learned)
+        source = getattr(response, 'source', 'llm')
+        debug_parts.append(f"Source={source}")
+
         if response.emotion:
             valence = getattr(response.emotion, 'pleasure', 0) or getattr(response.emotion, 'valence', 0)
             arousal = getattr(response.emotion, 'arousal', 0.5)
@@ -231,6 +238,12 @@ class CLIChat:
             self._cmd_debug()
         elif cmd in ["/clear", "/cls"]:
             self._cmd_clear()
+        elif cmd in ["/good", "/+", "/like"]:
+            self._cmd_good(args)
+        elif cmd in ["/bad", "/-", "/dislike"]:
+            self._cmd_bad(args)
+        elif cmd in ["/learned", "/patterns"]:
+            self._cmd_learned()
         else:
             self._cmd_unknown(cmd)
 
@@ -244,6 +257,9 @@ class CLIChat:
         print("/stats        - Session istatistikleri")
         print("/debug        - Debug modunu ac/kapat")
         print("/clear        - Ekrani temizle")
+        print("/good, /+     - Pozitif feedback (son cevap icin)")
+        print("/bad, /-      - Negatif feedback (son cevap icin)")
+        print("/learned      - Ogrenilen pattern sayisi")
         print("----------------")
 
     def _cmd_quit(self) -> None:
@@ -327,6 +343,12 @@ class CLIChat:
         if avg_emotion:
             print(f"  Ort. Duygu: P={avg_emotion.get('pleasure', 0):.2f}")
 
+        # Learning stats
+        patterns = stats.get('patterns_learned', 0)
+        learned_responses = stats.get('learned_responses', 0)
+        print(f"  Ogrenilen pattern: {patterns}")
+        print(f"  Ogrenilmis cevap: {learned_responses}")
+
         print("------------------------------")
 
     def _cmd_debug(self) -> None:
@@ -345,6 +367,58 @@ class CLIChat:
         """Handle unknown command."""
         print(f"\n[Bilinmeyen komut: {cmd}]")
         print("[Komutlar icin /help yazin]")
+
+    def _cmd_good(self, reason: str = "") -> None:
+        """
+        Give positive feedback for last response.
+
+        Args:
+            reason: Optional reason for feedback
+        """
+        if not hasattr(self.agent, 'feedback'):
+            print("\n[Feedback ozelligi mevcut degil]")
+            return
+
+        success = self.agent.feedback(positive=True, reason=reason if reason else None)
+        if success:
+            print("\n[+] Tesekkurler! Pozitif feedback kaydedildi.")
+        else:
+            print("\n[!] Feedback kaydedilemedi (onceki cevap yok)")
+
+    def _cmd_bad(self, reason: str = "") -> None:
+        """
+        Give negative feedback for last response.
+
+        Args:
+            reason: Optional reason for feedback
+        """
+        if not hasattr(self.agent, 'feedback'):
+            print("\n[Feedback ozelligi mevcut degil]")
+            return
+
+        success = self.agent.feedback(positive=False, reason=reason if reason else None)
+        if success:
+            print("\n[-] Tesekkurler! Negatif feedback kaydedildi.")
+        else:
+            print("\n[!] Feedback kaydedilemedi (onceki cevap yok)")
+
+    def _cmd_learned(self) -> None:
+        """Show number of learned patterns."""
+        if not hasattr(self.agent, 'get_learned_count'):
+            print("\n[Learning ozelligi mevcut degil]")
+            return
+
+        count = self.agent.get_learned_count()
+        print(f"\n[Ogrenilen pattern sayisi: {count}]")
+
+        # Show learning stats if available
+        if hasattr(self.agent, 'get_learning_stats'):
+            stats = self.agent.get_learning_stats()
+            if stats:
+                feedback_stats = stats.get('feedback', {})
+                total_feedback = feedback_stats.get('total_feedback', 0)
+                avg_score = feedback_stats.get('average_score', 0)
+                print(f"[Toplam feedback: {total_feedback}, Ort. skor: {avg_score:.2f}]")
 
     # ===================================================================
     # MESSAGE HANDLING

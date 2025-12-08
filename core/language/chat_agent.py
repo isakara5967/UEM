@@ -51,6 +51,17 @@ except ImportError:
         timestamp: Optional[float] = None
         source: Optional[str] = None
 
+# Learning imports - graceful
+try:
+    from core.learning import (
+        LearningProcessor,
+        FeedbackType,
+        LearningOutcome,
+    )
+    LEARNING_AVAILABLE = True
+except ImportError:
+    LEARNING_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,6 +75,8 @@ class ChatConfig:
     auto_index_conversations: bool = True
     track_emotions: bool = True
     default_trust: float = 0.5
+    enable_learning: bool = True
+    use_learned_responses: bool = True
 
 
 @dataclass
@@ -76,6 +89,8 @@ class ChatResponse:
     llm_response: Optional[LLMResponse] = None
     context_used: Optional[str] = None
     turn_id: Optional[str] = None
+    source: str = "llm"  # "llm" or "learned"
+    interaction_id: Optional[str] = None
 
 
 class UEMChatAgent:
@@ -126,22 +141,34 @@ class UEMChatAgent:
         # Context builder
         self.context_builder = ContextBuilder(self.config.context_config)
 
+        # Learning processor
+        self.learning: Optional[LearningProcessor] = None
+        if self.config.enable_learning and LEARNING_AVAILABLE:
+            self.learning = LearningProcessor(memory=self.memory)
+            logger.info("Learning processor initialized")
+
         # Session state
         self._current_user_id: Optional[str] = None
         self._current_session_id: Optional[str] = None
         self._session_emotions: List[PADState] = []
         self._turn_count = 0
 
+        # Learning state
+        self._last_interaction_id: Optional[str] = None
+        self._last_pattern_id: Optional[str] = None
+
         # Stats
         self._stats = {
             "total_sessions": 0,
             "total_turns": 0,
             "total_recalls": 0,
+            "learned_responses": 0,
         }
 
         logger.info(
             f"UEMChatAgent initialized (memory={self.memory is not None}, "
-            f"llm={self.llm.get_provider().value})"
+            f"llm={self.llm.get_provider().value}, "
+            f"learning={self.learning is not None})"
         )
 
     # ===================================================================
@@ -215,12 +242,11 @@ class UEMChatAgent:
         Main chat method.
 
         Steps:
-        1. Get context from conversation memory
-        2. Get relevant memories from semantic search
-        3. Build context
-        4. Get response from LLM
-        5. Save to memory
-        6. Return response
+        1. Try to get learned response
+        2. If no learned response, get from LLM
+        3. Save to memory
+        4. Learn from interaction
+        5. Return response
 
         Args:
             user_message: User's message
@@ -229,31 +255,52 @@ class UEMChatAgent:
         Returns:
             ChatResponse with agent's reply
         """
+        import uuid
+
         # Ensure session
         if self._current_session_id is None:
             user_id = user_id or "default_user"
             self.start_session(user_id)
 
-        # 1. Build context
-        context = self._build_context(user_message)
+        # Generate interaction ID
+        interaction_id = f"int_{uuid.uuid4().hex[:12]}"
+        self._last_interaction_id = interaction_id
 
-        # 2. Get LLM response
-        llm_response = self.llm.generate(
-            prompt=context,
-            system=self.config.personality,
-        )
+        # Detect intent early
+        intent = self._detect_intent(user_message)
+
+        # 1. Try learned response first
+        response_content = None
+        response_source = "llm"
+        llm_response = None
+
+        if (self.learning is not None and
+            self.config.use_learned_responses):
+            learned = self.learning.suggest_response(user_message)
+            if learned:
+                response_content = learned
+                response_source = "learned"
+                self._stats["learned_responses"] += 1
+                logger.debug(f"Using learned response for: {user_message[:50]}...")
+
+        # 2. If no learned response, use LLM
+        if response_content is None:
+            context = self._build_context(user_message)
+            llm_response = self.llm.generate(
+                prompt=context,
+                system=self.config.personality,
+            )
+            response_content = llm_response.content
+            response_source = "llm"
 
         # 3. Extract emotion from response
         emotion = None
         if self.config.track_emotions:
-            emotion = self._extract_emotion(llm_response.content)
+            emotion = self._extract_emotion(response_content)
             if emotion:
                 self._session_emotions.append(emotion)
 
-        # 4. Detect intent
-        intent = self._detect_intent(user_message)
-
-        # 5. Save to memory
+        # 4. Save to memory
         turn_id = None
         if self.memory is not None and hasattr(self.memory, 'conversation'):
             # Save user turn
@@ -271,7 +318,7 @@ class UEMChatAgent:
             # Save agent turn
             agent_turn = DialogueTurn(
                 role="agent",
-                content=llm_response.content,
+                content=response_content,
                 emotional_valence=emotion.pleasure if emotion else 0.0,
             )
             turn_id = self.memory.conversation.add_turn(
@@ -280,16 +327,29 @@ class UEMChatAgent:
                 agent_turn.content,
             )
 
+        # 5. Store response as pattern for learning (if from LLM)
+        self._last_pattern_id = None
+        if self.learning is not None and response_source == "llm":
+            from core.learning import PatternType
+            pattern = self.learning.pattern_storage.store(
+                content=response_content,
+                pattern_type=PatternType.RESPONSE,
+                extra_data={"context": user_message, "interaction_id": interaction_id}
+            )
+            self._last_pattern_id = pattern.id
+
         self._turn_count += 1
         self._stats["total_turns"] += 1
 
         return ChatResponse(
-            content=llm_response.content,
+            content=response_content,
             emotion=emotion,
             intent=intent,
             llm_response=llm_response,
-            context_used=context,
+            context_used=self._build_context(user_message) if llm_response else None,
             turn_id=turn_id,
+            source=response_source,
+            interaction_id=interaction_id,
         )
 
     # ===================================================================
@@ -333,6 +393,73 @@ class UEMChatAgent:
             self._current_session_id,
             max_turns=n,
         )
+
+    # ===================================================================
+    # LEARNING
+    # ===================================================================
+
+    def feedback(self, positive: bool, reason: Optional[str] = None) -> bool:
+        """
+        Provide feedback for the last interaction.
+
+        Args:
+            positive: True for positive, False for negative feedback
+            reason: Optional reason for feedback
+
+        Returns:
+            True if feedback was recorded successfully
+        """
+        if self.learning is None:
+            logger.warning("Learning not available, feedback ignored")
+            return False
+
+        if self._last_interaction_id is None:
+            logger.warning("No last interaction to provide feedback for")
+            return False
+
+        # Record explicit feedback
+        feedback_type = FeedbackType.POSITIVE if positive else FeedbackType.NEGATIVE
+        value = 1.0 if positive else -1.0
+
+        feedback_obj = self.learning.feedback_collector.record(
+            interaction_id=self._last_interaction_id,
+            feedback_type=FeedbackType.EXPLICIT,
+            value=value,
+            user_id=self._current_user_id,
+            reason=reason
+        )
+
+        # Reinforce pattern if exists
+        if self._last_pattern_id:
+            self.learning.reinforcer.reinforce(self._last_pattern_id, feedback_obj)
+            logger.debug(
+                f"Feedback recorded: {'positive' if positive else 'negative'} "
+                f"for pattern {self._last_pattern_id}"
+            )
+
+        return True
+
+    def get_learned_count(self) -> int:
+        """
+        Get number of learned patterns.
+
+        Returns:
+            Number of patterns in storage
+        """
+        if self.learning is None:
+            return 0
+        return self.learning.pattern_storage.count()
+
+    def get_learning_stats(self) -> Dict[str, Any]:
+        """
+        Get learning statistics.
+
+        Returns:
+            Learning stats dict or empty dict if learning disabled
+        """
+        if self.learning is None:
+            return {}
+        return self.learning.stats()
 
     # ===================================================================
     # STATE
@@ -386,14 +513,17 @@ class UEMChatAgent:
                 "arousal": avg_arousal,
             }
 
-        return {
+        stats = {
             "session_id": self._current_session_id,
             "user_id": self._current_user_id,
             "turn_count": self._turn_count,
             "emotion_samples": len(self._session_emotions),
             "average_emotion": avg_emotion,
+            "patterns_learned": self.get_learned_count(),
             **self._stats,
         }
+
+        return stats
 
     # ===================================================================
     # INTERNAL METHODS
