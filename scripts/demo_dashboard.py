@@ -311,7 +311,7 @@ def run_scenarios(memory, cycle):
 
     # Cycle özeti
     print(f"\nTotal Cycles: {cycle.cycle_count}")
-    print(f"Total Episodes: {len(memory.get_recent_episodes(100))}")
+    print(f"Total Episodes: {len(memory.recall_episodes(limit=100))}")
 
     # Trust seviyeleri
     print("\nTrust Seviyeleri:")
