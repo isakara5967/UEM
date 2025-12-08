@@ -10,6 +10,7 @@ Usage:
         EpisodeModel,
         RelationshipModel,
         MemoryRepository,
+        ConversationRepository,
     )
 
     # Create session
@@ -18,6 +19,10 @@ Usage:
     # Use repository
     repo = MemoryRepository(session)
     repo.save_episode(episode)
+
+    # Conversation repository
+    conv_repo = ConversationRepository(session)
+    conv_repo.create_conversation(user_id="user1")
 """
 
 from .models import (
@@ -28,6 +33,8 @@ from .models import (
     SemanticFactModel,
     EmotionalMemoryModel,
     TrustHistoryModel,
+    ConversationModel,
+    DialogueTurnModel,
 )
 
 from .repository import (
@@ -36,6 +43,8 @@ from .repository import (
     get_session,
     init_db,
 )
+
+from .conversation_repo import ConversationRepository
 
 __all__ = [
     # Models
@@ -46,9 +55,12 @@ __all__ = [
     "SemanticFactModel",
     "EmotionalMemoryModel",
     "TrustHistoryModel",
+    "ConversationModel",
+    "DialogueTurnModel",
 
     # Repository
     "MemoryRepository",
+    "ConversationRepository",
     "get_engine",
     "get_session",
     "init_db",

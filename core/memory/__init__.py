@@ -11,6 +11,7 @@ Norobilim bazli bellek sistemi:
 - Semantic memory (bilgi, kavramlar)
 - Emotional memory (duygu etiketli anilar)
 - Relationship memory (iliski gecmisi)
+- Conversation memory (sohbet gecmisi)
 
 Kullanim:
     from core.memory import get_memory_store, Episode, Interaction
@@ -24,6 +25,11 @@ Kullanim:
 
     # Iliski sorgula
     relationship = store.get_relationship("alice")
+
+    # Conversation memory
+    session_id = store.conversation.start_conversation(user_id="user1")
+    store.conversation.add_turn(session_id, "user", "Hello!")
+    context = store.conversation.get_context(session_id)
 """
 
 # Types - veri yapilari
@@ -59,6 +65,10 @@ from .types import (
     Interaction,
     RelationshipRecord,
 
+    # Conversation
+    DialogueTurn,
+    Conversation,
+
     # Consolidation
     ConsolidationTask,
 
@@ -74,6 +84,15 @@ from .store import (
     get_memory_store,
     create_memory_store,
     reset_memory_store,
+)
+
+# Conversation memory
+from .conversation import (
+    ConversationMemory,
+    ConversationConfig,
+    get_conversation_memory,
+    create_conversation_memory,
+    reset_conversation_memory,
 )
 
 __all__ = [
@@ -107,6 +126,15 @@ __all__ = [
     # Relationship
     "Interaction",
     "RelationshipRecord",
+
+    # Conversation
+    "DialogueTurn",
+    "Conversation",
+    "ConversationMemory",
+    "ConversationConfig",
+    "get_conversation_memory",
+    "create_conversation_memory",
+    "reset_conversation_memory",
 
     # Consolidation
     "ConsolidationTask",
