@@ -1,148 +1,63 @@
-# UEM v2 CHECKPOINT - 8 Aralık 2025
+# UEM v2 Checkpoint - 8 Aralik 2025
 
-## 📋 Genel Durum
+## Bu Oturumda Yapilanlar
 
-| Metrik | Değer |
-|--------|-------|
-| Dizin sayısı | ~55 (sabit) |
-| Dosya sayısı | ~125+ |
-| Test sayısı | **114 (geçen)** ✅ |
-| Demo | 3/3 senaryo ✅ |
+### Memory Modulu (Sifirdan)
+- core/memory/types.py (498 satir) - Tum dataclass ve enum'lar
+- core/memory/store.py (722 satir) - MemoryStore coordinator
+- core/memory/__init__.py (124 satir) - Facade exports
+- tests/unit/test_memory.py (486 satir) - 25 test
 
----
+### PostgreSQL Persistence
+- sql/memory_schema.sql - 8 tablo (episodes, relationships, interactions, cycle_metrics, activity_log, trust_history, semantic_facts, emotional_memories)
+- core/memory/persistence/models.py - SQLAlchemy modelleri
+- core/memory/persistence/repository.py - DB operations
+- Docker: uem_v2_postgres container
 
-## 🔧 BU OTURUMDA YAPILANLAR
+### Trust Entegrasyonu
+- RelationshipRecord.add_interaction() - trust_score dinamik guncelleme
+- Memory -> Trust akisi tamamlandi
+- Ihanet, yardim, tehdit senaryolari test edildi
 
-### 1. Memory Modülü Implementasyonu
+### Monitoring Modulu
+- meta/monitoring/metrics/cycle.py - CycleMetrics, PhaseMetrics
+- meta/monitoring/reporter.py - Console output
+- meta/monitoring/persistence.py - PostgreSQL'e metrik yazma
+- tests/unit/test_monitoring.py - 29 test
 
-**Tamamlanan dosyalar:**
-- `core/memory/types.py` - Memory tipleri ve yapıları
-- `core/memory/store.py` - MemoryStore implementasyonu
+### Dashboard (Streamlit)
+- interface/dashboard/app.py - Canli dashboard
+- PostgreSQL'den veri okuma
+- Cycle metrics, phase durations, trust levels gorsellestirme
 
-**Özellikler:**
-- Memory kayıt ve sorgulama
-- Episodic/Semantic memory ayrımı
-- Retrieval mekanizması
+### Demo
+- scripts/demo_dashboard.py - 20 senaryo demo
 
----
+## Test Durumu
+- 143+ test geciyor
+- Tum moduller calisiyor
 
-### 2. Trust Entegrasyonu
+## Proje Istatistikleri
+- Calisan moduller: 6/11 (~55%)
+- Yeni satir: ~3000+
+- Yeni test: ~54
 
-**Yapılanlar:**
-- Memory modülü Trust sistemiyle entegre edildi
-- Geçmiş etkileşimler trust hesaplamasını etkiliyor
-- Relationship history takibi
+## Sonraki Adimlar
 
----
+### Yuksek Oncelik
+1. Perception modulu - Gercek algi isleme (su an stub)
+2. Cognition modulu - Reasoning, planning (su an stub)
+3. Self modulu - Self-model, identity, goals
 
-### 3. RETRIEVE Handler
+### Orta Oncelik
+4. Multi-agent simulation - Birden fazla UEM agent etkilesimi
+5. Memory consolidation - STM -> LTM transfer (sleep cycle)
+6. Emotional memory - Flashbulb memories, somatic markers
+7. Episode similarity search - Benzer durumlari hatirlama
 
-**Eklenen:**
-- RETRIEVE phase handler implementasyonu
-- Memory'den ilgili kayıtları çekme
-- Context-aware retrieval
-
----
-
-### 4. PostgreSQL Persistence Layer
-
-**Hazırlanan:**
-- PostgreSQL bağlantı altyapısı
-- Schema tasarımı
-- Persistence interface'leri
-
-**Durum:** Altyapı hazır, bağlantı bekliyor
-
----
-
-## 📊 TEST DURUMU
-
-```
-╔════════════════════════════════════════════════════════════════════╗
-║  TEST RESULTS                                                      ║
-╠════════════════════════════════════════════════════════════════════╣
-║  Total Tests:        114                                           ║
-║  Passed:             114 ✅                                        ║
-║  Failed:             0                                             ║
-║  Coverage:           Artıyor                                       ║
-╚════════════════════════════════════════════════════════════════════╝
-```
-
----
-
-## ✅ ÇALIŞAN MODÜLLER (Güncel)
-
-| Modül | Durum | Notlar |
-|-------|-------|--------|
-| core/perception | ⚪ Stub | Handler var, basit |
-| core/cognition | ⚪ Stub | Handler var, basit |
-| **core/memory** | ✅ **Çalışıyor** | types.py, store.py, RETRIEVE handler |
-| **core/affect/emotion** | ✅ **Çalışıyor** | PAD, BasicEmotion |
-| **core/affect/social** | ✅ **Çalışıyor** | Empathy, Sympathy, Trust + Memory entegrasyonu |
-| core/self | ⚪ Stub | Boş |
-| **core/executive** | ✅ **Çalışıyor** | Decision handler |
-| meta/consciousness | ⚪ Stub | Boş |
-| meta/metamind | ⚪ Stub | Boş |
-| meta/monitoring | ⚪ Stub | Boş |
-| **engine/cycle** | ✅ **Çalışıyor** | 10-phase cycle |
-| **foundation/state** | ✅ **Çalışıyor** | StateVector, SVField, Bridge |
-| interface/dashboard | ⚪ Stub | Boş |
-
-### Özet
-```
-Tamamlanan:  5/12 ana modül (%42) ⬆️
-Stub:        7/12 ana modül
-
-Çalışan akış:
-  Perception → Memory → Affect → Executive → Action
-  (basit)      (YENİ!)   (tam)    (tam)       (tam)
-```
-
----
-
-## 🎯 SONRAKİ HEDEFLER
-
-| Öncelik | Görev | Detay |
-|---------|-------|-------|
-| 1 | **PostgreSQL Bağlantısı** | MemoryStore'a PostgreSQL persistence bağla |
-| 2 | **Demo Güncelleme** | Memory özelliklerini demo'ya ekle |
-| 3 | **Monitoring Modülü** | meta/monitoring implementasyonu |
-
----
-
-## 📁 BUGÜN DEĞİŞEN/EKLENEN DOSYALAR
-
-| Dosya | Değişiklik |
-|-------|------------|
-| `core/memory/types.py` | YENİ - Memory tipleri |
-| `core/memory/store.py` | YENİ - MemoryStore implementasyonu |
-| `engine/cycle/handlers/` | RETRIEVE handler eklendi |
-| `core/affect/social/` | Trust-Memory entegrasyonu |
-| PostgreSQL persistence | Altyapı hazırlandı |
-
----
-
-## 📈 İLERLEME GRAFİĞİ
-
-```
-7 Aralık:  ████████████░░░░░░░░  33% (4/12 modül)
-8 Aralık:  █████████████████░░░  42% (5/12 modül) ⬆️
-
-Test sayısı:
-7 Aralık:  ~50 test
-8 Aralık:  114 test ⬆️ (+64 test)
-```
-
----
-
-## 💡 NOTLAR
-
-- Memory modülü başarıyla çalışıyor
-- Trust artık geçmiş etkileşimleri dikkate alıyor
-- PostgreSQL altyapısı hazır, sadece bağlantı gerekiyor
-- Test coverage önemli ölçüde arttı
-
----
-
-*Bu doküman UEM v2 projesinde checkpoint ve oturumlar arası köprü görevi görür.*
-*Sonraki oturumda bu dosyayı referans olarak kullan.*
+### Dusuk Oncelik / Gelecek
+8. API layer (FastAPI) - Dis entegrasyon
+9. WebSocket - Real-time dashboard updates
+10. Semantic network - Concept graphs, spreading activation
+11. CI/CD pipeline - GitHub Actions
+12. README.md - Proje dokumantasyonu
