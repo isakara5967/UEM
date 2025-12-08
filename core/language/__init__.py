@@ -3,21 +3,16 @@ core/language/__init__.py
 
 UEM v2 Language Module - LLM entegrasyonu.
 
-Context building ve response generation.
+Context building, LLM adapters ve chat agent.
 
 Kullanim:
-    from core.language import ContextBuilder, ContextConfig
-    from core.language import MockLLMAdapter, LLMResponse
+    from core.language import UEMChatAgent, ChatConfig
 
-    builder = ContextBuilder()
-    context = builder.build(
-        user_message="Merhaba!",
-        conversation=conv,
-        relevant_memories=memories,
-    )
-
-    adapter = MockLLMAdapter()
-    response = adapter.generate(context)
+    agent = UEMChatAgent()
+    session_id = agent.start_session("user_123")
+    response = agent.chat("Merhaba!")
+    print(response.content)
+    agent.end_session()
 """
 
 from .context import (
@@ -42,6 +37,15 @@ from .llm_adapter import (
     reset_llm_adapter,
 )
 
+from .chat_agent import (
+    ChatConfig,
+    ChatResponse,
+    UEMChatAgent,
+    get_chat_agent,
+    create_chat_agent,
+    reset_chat_agent,
+)
+
 __all__ = [
     # Context
     "ContextBuilder",
@@ -62,4 +66,12 @@ __all__ = [
     "create_adapter",
     "get_llm_adapter",
     "reset_llm_adapter",
+
+    # Chat Agent
+    "ChatConfig",
+    "ChatResponse",
+    "UEMChatAgent",
+    "get_chat_agent",
+    "create_chat_agent",
+    "reset_chat_agent",
 ]
