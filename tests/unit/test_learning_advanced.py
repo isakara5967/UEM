@@ -246,8 +246,13 @@ class TestReinforcer:
         encoder.encode = Mock(return_value=np.array([1.0, 0.0, 0.0]))
 
         storage = PatternStorage(encoder=encoder)
-        storage.store("hello world", PatternType.RESPONSE)
-        storage.store("hello there", PatternType.RESPONSE)
+        p1 = storage.store("hello world", PatternType.RESPONSE)
+        p2 = storage.store("hello there", PatternType.RESPONSE)
+
+        # Add success_count >= 3 to meet new stricter requirements
+        for _ in range(3):
+            storage.update_stats(p1.id, success=True, reward=1.0)
+            storage.update_stats(p2.id, success=True, reward=1.0)
 
         reinforcer = Reinforcer(storage)
         feedback = Feedback(
@@ -371,9 +376,22 @@ class TestBehaviorAdapter:
 
     def test_suggest_pattern_with_patterns(self):
         """Test suggesting pattern with available patterns."""
-        storage = PatternStorage()
-        storage.store("response 1", PatternType.RESPONSE)
-        storage.store("response 2", PatternType.RESPONSE)
+        # Create mock encoder for similarity search
+        encoder = Mock()
+        encoder.encode = Mock(return_value=np.array([1.0, 0.0, 0.0]))
+
+        storage = PatternStorage(encoder=encoder)
+        p1 = storage.store("response 1", PatternType.RESPONSE)
+        p2 = storage.store("response 2", PatternType.RESPONSE)
+
+        # Add success stats to meet stricter requirements:
+        # success_count >= 3, success_rate >= 0.7
+        for _ in range(4):
+            storage.update_stats(p1.id, success=True, reward=1.0)
+            storage.update_stats(p2.id, success=True, reward=1.0)
+        # Add 1 failure to have success_rate = 4/5 = 0.8 (>= 0.7)
+        storage.update_stats(p1.id, success=False, reward=-0.5)
+        storage.update_stats(p2.id, success=False, reward=-0.5)
 
         collector = FeedbackCollector()
         config = AdaptationConfig(exploration_rate=0.0)  # No exploration
@@ -449,8 +467,16 @@ class TestBehaviorAdapter:
 
     def test_get_adaptations(self):
         """Test getting adaptation records."""
-        storage = PatternStorage()
-        storage.store("test", PatternType.RESPONSE)
+        # Create mock encoder for similarity search
+        encoder = Mock()
+        encoder.encode = Mock(return_value=np.array([1.0, 0.0, 0.0]))
+
+        storage = PatternStorage(encoder=encoder)
+        p = storage.store("test", PatternType.RESPONSE)
+
+        # Add success stats to meet stricter requirements
+        for _ in range(4):
+            storage.update_stats(p.id, success=True, reward=1.0)
 
         collector = FeedbackCollector()
         config = AdaptationConfig(exploration_rate=0.0)
@@ -694,6 +720,11 @@ class TestLearningIntegration:
         storage = PatternStorage(encoder=encoder)
         p1 = storage.store("similar pattern 1", PatternType.RESPONSE)
         p2 = storage.store("similar pattern 2", PatternType.RESPONSE)
+
+        # Add success_count >= 3 to meet new stricter requirements
+        for _ in range(3):
+            storage.update_stats(p1.id, success=True, reward=1.0)
+            storage.update_stats(p2.id, success=True, reward=1.0)
 
         reinforcer = Reinforcer(storage)
 

@@ -444,7 +444,8 @@ class TestPatternStorage:
         storage = PatternStorage(encoder=encoder)
         pattern = storage.store("hello", PatternType.RESPONSE)
 
-        similar = storage.find_similar("hello", k=5, min_similarity=0.5)
+        # Use lower thresholds for testing (production uses min_similarity=0.85, min_uses=3)
+        similar = storage.find_similar("hello", k=5, min_similarity=0.5, min_uses=0)
         assert len(similar) == 1
         assert similar[0][0].id == pattern.id
         assert similar[0][1] == 1.0  # Same vector = similarity 1.0
