@@ -295,7 +295,11 @@ class DialogueActSelector:
             if goal in self._intent_act_map:
                 matching_acts = self._intent_act_map[goal]
                 if act in matching_acts:
-                    boost = intention.confidence * 0.5
+                    # Primary act (first in list) gets higher boost
+                    if matching_acts[0] == act:
+                        boost = intention.confidence * 0.9
+                    else:
+                        boost = intention.confidence * 0.7
                     score += boost
                     reasons.append(f"Intent '{goal}' matches")
 
@@ -356,14 +360,15 @@ class DialogueActSelector:
         reasons = []
 
         # Negative valence → Empathize, Comfort, Encourage
-        if emotional_state.valence < -0.3:
+        if emotional_state.valence <= -0.2:
             empathy_acts = [
                 DialogueAct.EMPATHIZE,
                 DialogueAct.COMFORT,
                 DialogueAct.ENCOURAGE
             ]
             if act in empathy_acts:
-                score += 0.5
+                # Stronger boost for empathy with negative emotions
+                score += 0.7
                 reasons.append("Negative emotion detected, empathy needed")
 
         # Positive valence → Acknowledge, Encourage
@@ -545,6 +550,13 @@ class DialogueActSelector:
             Eşleştirme sözlüğü
         """
         return {
+            # MVCS-aligned spesifik intent'ler
+            "ask_wellbeing": [DialogueAct.INFORM, DialogueAct.ACKNOWLEDGE],  # MVCS: ASK_WELLBEING response
+            "ask_identity": [DialogueAct.INFORM],  # MVCS: SELF_INTRO response
+            "express_negative_emotion": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],  # MVCS: EMPATHIZE_BASIC
+            "express_positive_emotion": [DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],
+            "request_help": [DialogueAct.CLARIFY, DialogueAct.ADVISE, DialogueAct.SUGGEST],  # MVCS: CLARIFY_REQUEST
+            # Genel intent'ler
             "help": [DialogueAct.ADVISE, DialogueAct.SUGGEST, DialogueAct.EXPLAIN],
             "inform": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
             "ask": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
