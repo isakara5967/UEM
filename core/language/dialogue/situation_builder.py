@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 import uuid
 
+from core.utils.text import normalize_turkish
+
 from .types import (
     SituationModel,
     Actor,
@@ -195,15 +197,15 @@ class SituationBuilder:
         # Mesajda 3. kişiler var mı?
         # Basit heuristik: isim, "o", "onlar", "arkadaşım" vs.
         third_party_indicators = [
-            "arkadaşım", "annem", "babam", "kardeşim", "eşim",
-            "müdürüm", "öğretmenim", "doktorum", "komşum",
+            "arkadasim", "annem", "babam", "kardesim", "esim",
+            "mudurum", "ogretmenim", "doktorum", "komsum",
             "o ", "onlar", "onun", "ona"
         ]
 
-        message_lower = message.lower()
+        message_normalized = normalize_turkish(message)
         found_count = 0
         for i, indicator in enumerate(third_party_indicators):
-            if indicator in message_lower:
+            if indicator in message_normalized:
                 actors.append(Actor(
                     id=f"third_party_{i}",
                     role="third_party",
@@ -233,25 +235,25 @@ class SituationBuilder:
             List[Intention]: Niyet listesi
         """
         intentions = []
-        message_lower = message.lower()
+        message_normalized = normalize_turkish(message)
 
-        # Kullanıcı niyetleri (basit heuristik)
+        # Kullanıcı niyetleri (basit heuristik) - normalized patterns
         intent_patterns = {
-            "help": ["yardım", "yardım et", "nasıl", "ne yapmalı"],
-            "inform": ["bilgi", "öğrenmek", "nedir", "ne demek"],
-            "ask": ["?", "mi ", "mı ", "mu ", "mü ", "soru"],
-            "complain": ["şikayet", "problem", "sorun", "kötü"],
-            "request": ["ister", "istiyorum", "lütfen", "rica"],
-            "greet": ["merhaba", "selam", "günaydın", "iyi akşam"],
-            "thank": ["teşekkür", "sağol", "eyvallah"],
-            "express_emotion": ["mutlu", "üzgün", "kızgın", "endişe", "korku"]
+            "help": ["yardim", "yardim et", "nasil", "ne yapmali"],
+            "inform": ["bilgi", "ogrenmek", "nedir", "ne demek"],
+            "ask": ["?", "mi ", "mi ", "mu ", "mu ", "soru"],
+            "complain": ["sikayet", "problem", "sorun", "kotu"],
+            "request": ["ister", "istiyorum", "lutfen", "rica"],
+            "greet": ["merhaba", "selam", "gunaydin", "iyi aksam"],
+            "thank": ["tesekkur", "sagol", "eyvallah"],
+            "express_emotion": ["mutlu", "uzgun", "kizgin", "endise", "korku"]
         }
 
         user_actor = next((a for a in actors if a.role == "user"), None)
         if user_actor:
             for goal, patterns in intent_patterns.items():
                 for pattern in patterns:
-                    if pattern in message_lower:
+                    if pattern in message_normalized:
                         intentions.append(Intention(
                             id=_generate_intention_id(),
                             actor_id=user_actor.id,
@@ -291,31 +293,31 @@ class SituationBuilder:
             List[Risk]: Risk listesi
         """
         risks = []
-        message_lower = message.lower()
+        message_normalized = normalize_turkish(message)
 
-        # Risk pattern'leri
+        # Risk pattern'leri - normalized keywords
         risk_patterns = {
             "safety": {
-                "keywords": ["intihar", "kendine zarar", "ölmek", "yaralanma", "kaza"],
+                "keywords": ["intihar", "kendine zarar", "olmek", "yaralanma", "kaza"],
                 "level": 0.9
             },
             "emotional": {
-                "keywords": ["depresyon", "anksiyete", "panik", "çok kötü", "dayanamıyorum"],
+                "keywords": ["depresyon", "anksiyete", "panik", "cok kotu", "dayanamiyorum"],
                 "level": 0.7
             },
             "ethical": {
-                "keywords": ["yasadışı", "hile", "dolandır", "çal", "hackle"],
+                "keywords": ["yasadisi", "hile", "dolandir", "cal", "hackle"],
                 "level": 0.8
             },
             "relational": {
-                "keywords": ["ayrılık", "boşanma", "kavga", "terk"],
+                "keywords": ["ayrilik", "bosanma", "kavga", "terk"],
                 "level": 0.5
             }
         }
 
         for risk_type, config in risk_patterns.items():
             for keyword in config["keywords"]:
-                if keyword in message_lower:
+                if keyword in message_normalized:
                     mitigations = self._get_risk_mitigations(risk_type)
                     risks.append(Risk(
                         category=risk_type,
@@ -357,34 +359,34 @@ class SituationBuilder:
         Returns:
             EmotionalState: Duygusal durum
         """
-        message_lower = message.lower()
+        message_normalized = normalize_turkish(message)
 
-        # Basit duygu pattern'leri
+        # Basit duygu pattern'leri - normalized words
         valence = 0.0
         arousal = 0.0
         primary_emotion: Optional[str] = None
 
-        positive_words = ["mutlu", "harika", "güzel", "teşekkür", "seviyorum", "süper"]
-        negative_words = ["üzgün", "kötü", "sinirli", "kızgın", "nefret", "berbat"]
-        high_arousal_words = ["heyecan", "panik", "acil", "çok", "aşırı"]
-        low_arousal_words = ["sakin", "huzur", "rahat", "yavaş"]
+        positive_words = ["mutlu", "harika", "guzel", "tesekkur", "seviyorum", "super"]
+        negative_words = ["uzgun", "kotu", "sinirli", "kizgin", "nefret", "berbat"]
+        high_arousal_words = ["heyecan", "panik", "acil", "cok", "asiri"]
+        low_arousal_words = ["sakin", "huzur", "rahat", "yavas"]
 
         for word in positive_words:
-            if word in message_lower:
+            if word in message_normalized:
                 valence += 0.3
                 primary_emotion = primary_emotion or "positive"
 
         for word in negative_words:
-            if word in message_lower:
+            if word in message_normalized:
                 valence -= 0.3
                 primary_emotion = primary_emotion or "negative"
 
         for word in high_arousal_words:
-            if word in message_lower:
+            if word in message_normalized:
                 arousal += 0.2
 
         for word in low_arousal_words:
-            if word in message_lower:
+            if word in message_normalized:
                 arousal -= 0.2
 
         # Sınırla
@@ -410,21 +412,21 @@ class SituationBuilder:
         Returns:
             str: Konu alanı
         """
-        message_lower = message.lower()
+        message_normalized = normalize_turkish(message)
 
         topic_patterns = {
-            "technology": ["bilgisayar", "yazılım", "kod", "program", "internet"],
-            "health": ["sağlık", "hastalık", "doktor", "ilaç", "ağrı"],
-            "relationships": ["ilişki", "aile", "arkadaş", "sevgili"],
-            "work": ["iş", "kariyer", "maaş", "patron", "çalışma"],
-            "education": ["okul", "ders", "sınav", "öğren", "eğitim"],
-            "emotions": ["hissediyorum", "duygu", "mutlu", "üzgün"],
-            "help": ["yardım", "nasıl", "ne yapmalı"]
+            "technology": ["bilgisayar", "yazilim", "kod", "program", "internet"],
+            "health": ["saglik", "hastalik", "doktor", "ilac", "agri"],
+            "relationships": ["iliski", "aile", "arkadas", "sevgili"],
+            "work": ["is", "kariyer", "maas", "patron", "calisma"],
+            "education": ["okul", "ders", "sinav", "ogren", "egitim"],
+            "emotions": ["hissediyorum", "duygu", "mutlu", "uzgun"],
+            "help": ["yardim", "nasil", "ne yapmali"]
         }
 
         for topic, patterns in topic_patterns.items():
             for pattern in patterns:
-                if pattern in message_lower:
+                if pattern in message_normalized:
                     return topic
 
         return "general"
