@@ -10,6 +10,9 @@ Components:
 - Feedback: Geri bildirim kaydi
 - Pattern: Ogrenilen davranis patterni
 - LearningOutcome: Ogrenme sonucu
+- Episode: Etkilesim kaydi
+- EpisodeOutcome: Etkilesim sonucu
+- EpisodeSimilarity: Benzerlik hesaplayici
 - FeedbackCollector: Geri bildirim toplama
 - PatternStorage: Pattern depolama ve arama
 - RewardConfig: Reward hesaplama konfigurasyonu
@@ -30,6 +33,22 @@ from .types import (
     generate_feedback_id,
     generate_pattern_id,
     generate_rule_id,
+)
+
+from .episode import (
+    Episode,
+    EpisodeOutcome,
+    EpisodeCollection,
+    generate_episode_id,
+)
+
+from .similarity import (
+    SimilarityConfig,
+    SimilarityResult,
+    EpisodeSimilarity,
+    jaccard_similarity,
+    levenshtein_distance,
+    levenshtein_similarity,
 )
 
 from .feedback import FeedbackCollector
@@ -62,6 +81,11 @@ __all__ = [
     "Pattern",
     "LearningOutcome",
     "Rule",
+    "Episode",
+    "EpisodeOutcome",
+    "EpisodeCollection",
+    "SimilarityConfig",
+    "SimilarityResult",
     "RewardConfig",
     "AdaptationConfig",
     "AdaptationRecord",
@@ -69,7 +93,12 @@ __all__ = [
     "generate_feedback_id",
     "generate_pattern_id",
     "generate_rule_id",
+    "generate_episode_id",
+    "jaccard_similarity",
+    "levenshtein_distance",
+    "levenshtein_similarity",
     # Classes
+    "EpisodeSimilarity",
     "FeedbackCollector",
     "PatternStorage",
     "RewardCalculator",
