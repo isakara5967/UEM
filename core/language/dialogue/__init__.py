@@ -14,6 +14,7 @@ Components:
 - SituationModel: Algı/Bellek/Bilişim çıktısı
 - MessagePlan: Executive karar çıktısı
 - SituationBuilder: Perception + Memory + Cognition → SituationModel
+- DialogueActSelector: SituationModel → DialogueAct seçimi
 """
 
 from .types import (
@@ -36,10 +37,19 @@ from .situation_builder import (
     SituationBuilderConfig,
 )
 
+from .act_selector import (
+    DialogueActSelector,
+    ActSelectorConfig,
+    ActSelectionResult,
+    ActScore,
+    SelectionStrategy,
+)
+
 __all__ = [
     # Enums
     "DialogueAct",
     "ToneType",
+    "SelectionStrategy",
     # Dataclasses
     "Actor",
     "Intention",
@@ -49,9 +59,14 @@ __all__ = [
     "EmotionalState",
     "SituationModel",
     "MessagePlan",
+    "ActScore",
+    "ActSelectionResult",
     # Builder
     "SituationBuilder",
     "SituationBuilderConfig",
+    # Selector
+    "DialogueActSelector",
+    "ActSelectorConfig",
     # Utility functions
     "generate_situation_id",
     "generate_message_plan_id",
