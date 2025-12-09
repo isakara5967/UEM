@@ -14,6 +14,8 @@ Components:
 - EpisodeOutcome: Etkilesim sonucu
 - EpisodeSimilarity: Benzerlik hesaplayici
 - FeedbackCollector: Geri bildirim toplama
+- FeedbackWeighter: Episode agirliklama (Alice uzlasisi)
+- ImplicitSignals: Implicit sinyal yapisi
 - PatternStorage: Pattern depolama ve arama
 - RewardConfig: Reward hesaplama konfigurasyonu
 - RewardCalculator: Feedback'ten reward hesaplama
@@ -51,7 +53,12 @@ from .similarity import (
     levenshtein_similarity,
 )
 
-from .feedback import FeedbackCollector
+from .feedback import (
+    FeedbackCollector,
+    FeedbackWeighter,
+    FeedbackWeighterConfig,
+    ImplicitSignals,
+)
 
 from .patterns import PatternStorage
 
@@ -86,6 +93,8 @@ __all__ = [
     "EpisodeCollection",
     "SimilarityConfig",
     "SimilarityResult",
+    "FeedbackWeighterConfig",
+    "ImplicitSignals",
     "RewardConfig",
     "AdaptationConfig",
     "AdaptationRecord",
@@ -100,6 +109,7 @@ __all__ = [
     # Classes
     "EpisodeSimilarity",
     "FeedbackCollector",
+    "FeedbackWeighter",
     "PatternStorage",
     "RewardCalculator",
     "Reinforcer",
