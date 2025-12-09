@@ -1,9 +1,15 @@
 """
 core/language/__init__.py
 
-UEM v2 Language Module - LLM entegrasyonu.
+UEM v2 Language Module - LLM entegrasyonu ve Thought-to-Speech Pipeline.
 
-Context building, LLM adapters ve chat agent.
+Components:
+- Context: Context building for LLM prompts
+- LLM Adapter: LLM provider abstraction
+- Chat Agent: Main conversation agent
+- Dialogue: DialogueAct, MessagePlan, SituationModel (Faz 4)
+- Risk: RiskLevel, RiskAssessment (Faz 4)
+- Construction: Construction Grammar (Faz 4)
 
 Kullanim:
     from core.language import UEMChatAgent, ChatConfig
@@ -13,6 +19,11 @@ Kullanim:
     response = agent.chat("Merhaba!")
     print(response.content)
     agent.end_session()
+
+    # Faz 4 - Dialogue types
+    from core.language.dialogue import DialogueAct, MessagePlan, SituationModel
+    from core.language.risk import RiskLevel, RiskAssessment
+    from core.language.construction import Construction, ConstructionLevel
 """
 
 from .context import (
@@ -46,6 +57,44 @@ from .chat_agent import (
     reset_chat_agent,
 )
 
+# Faz 4 - Dialogue types
+from .dialogue import (
+    DialogueAct,
+    ToneType,
+    Actor,
+    Intention,
+    Risk,
+    Relationship,
+    TemporalContext,
+    EmotionalState,
+    SituationModel,
+    MessagePlan,
+    generate_situation_id,
+    generate_message_plan_id,
+)
+
+# Faz 4 - Risk types
+from .risk import (
+    RiskLevel,
+    RiskCategory,
+    RiskFactor,
+    RiskAssessment,
+    generate_risk_assessment_id,
+)
+
+# Faz 4 - Construction types
+from .construction import (
+    ConstructionLevel,
+    SlotType,
+    Slot,
+    MorphologyRule,
+    ConstructionForm,
+    ConstructionMeaning,
+    Construction,
+    generate_construction_id,
+    generate_slot_id,
+)
+
 __all__ = [
     # Context
     "ContextBuilder",
@@ -74,4 +123,36 @@ __all__ = [
     "get_chat_agent",
     "create_chat_agent",
     "reset_chat_agent",
+
+    # Faz 4 - Dialogue
+    "DialogueAct",
+    "ToneType",
+    "Actor",
+    "Intention",
+    "Risk",
+    "Relationship",
+    "TemporalContext",
+    "EmotionalState",
+    "SituationModel",
+    "MessagePlan",
+    "generate_situation_id",
+    "generate_message_plan_id",
+
+    # Faz 4 - Risk
+    "RiskLevel",
+    "RiskCategory",
+    "RiskFactor",
+    "RiskAssessment",
+    "generate_risk_assessment_id",
+
+    # Faz 4 - Construction
+    "ConstructionLevel",
+    "SlotType",
+    "Slot",
+    "MorphologyRule",
+    "ConstructionForm",
+    "ConstructionMeaning",
+    "Construction",
+    "generate_construction_id",
+    "generate_slot_id",
 ]
