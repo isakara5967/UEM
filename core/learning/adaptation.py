@@ -140,6 +140,11 @@ class BehaviorAdapter:
         """
         En iyi pattern'i sec (exploitation).
 
+        Pattern kullanilabilir olmasi icin:
+        - success_count >= 3 (en az 3 basarili kullanim)
+        - similarity >= 0.85 (yuksek benzerlik)
+        - success_rate >= 0.7 (%70 basari orani)
+
         Args:
             context: Baglam
             pattern_type: Pattern turu
@@ -147,28 +152,27 @@ class BehaviorAdapter:
         Returns:
             En iyi pattern veya None
         """
-        # Find similar patterns
-        similar = self.patterns.find_similar(context, k=10, min_similarity=0.3)
+        # Find similar patterns (min_similarity=0.85, min_uses=3 by default)
+        similar = self.patterns.find_similar(context, k=10)
 
         if not similar:
-            # Fallback to best patterns of this type
-            best = self.patterns.get_best_patterns(pattern_type, k=1)
-            return best[0] if best else None
+            # No pattern meets the criteria - return None (let LLM handle it)
+            return None
 
-        # Filter by pattern type and confidence
+        # Filter by pattern type, success rate, and confidence
         candidates = []
         for pattern, similarity in similar:
             if pattern.pattern_type == pattern_type:
+                # Require minimum 70% success rate
+                if pattern.success_rate < 0.7:
+                    continue
                 confidence = self.get_confidence(pattern)
-                if confidence >= self.config.confidence_threshold or pattern.total_uses < self.config.min_samples:
+                if confidence >= self.config.confidence_threshold:
                     score = similarity * confidence
-                    candidates.append((pattern, score))
+                    candidates.append((pattern, score, similarity))
 
         if not candidates:
-            # Return most similar regardless of confidence
-            for pattern, similarity in similar:
-                if pattern.pattern_type == pattern_type:
-                    return pattern
+            # No pattern meets all criteria - return None
             return None
 
         # Sort by score and return best

@@ -276,9 +276,10 @@ class UEMChatAgent:
 
         if (self.learning is not None and
             self.config.use_learned_responses):
-            learned = self.learning.suggest_response(user_message)
-            if learned:
-                response_content = learned
+            from core.learning import PatternType
+            pattern = self.learning.adapter.suggest_pattern(user_message, PatternType.RESPONSE)
+            if pattern and self._should_use_suggestion(pattern):
+                response_content = pattern.content
                 response_source = "learned"
                 self._stats["learned_responses"] += 1
                 logger.debug(f"Using learned response for: {user_message[:50]}...")
@@ -634,6 +635,30 @@ class UEMChatAgent:
             intensity=abs(pleasure),
             source="text_analysis",
         )
+
+    def _should_use_suggestion(self, pattern: Any) -> bool:
+        """
+        Pattern kullanilabilir mi kontrol et.
+
+        Sartlar:
+        - success_count >= 3 (en az 3 basarili kullanim)
+        - success_rate >= 0.7 (%70 basari orani)
+
+        Not: similarity kontrolu patterns.find_similar'da yapiliyor (>= 0.85)
+
+        Args:
+            pattern: Kontrol edilecek pattern
+
+        Returns:
+            True ise pattern kullanilabilir
+        """
+        if pattern is None:
+            return False
+        if pattern.success_count < 3:
+            return False
+        if pattern.success_rate < 0.7:
+            return False
+        return True
 
     def _detect_intent(self, text: str) -> str:
         """

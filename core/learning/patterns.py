@@ -107,7 +107,8 @@ class PatternStorage:
         self,
         content: str,
         k: int = 5,
-        min_similarity: float = 0.5
+        min_similarity: float = 0.85,
+        min_uses: int = 3
     ) -> List[Tuple[Pattern, float]]:
         """
         Benzer patternleri bul.
@@ -115,7 +116,8 @@ class PatternStorage:
         Args:
             content: Aranacak icerik
             k: Maksimum sonuc sayisi
-            min_similarity: Minimum benzerlik esigi
+            min_similarity: Minimum benzerlik esigi (default: 0.85)
+            min_uses: Minimum kullanim sayisi (default: 3)
 
         Returns:
             (Pattern, similarity) tuple listesi
@@ -134,7 +136,9 @@ class PatternStorage:
             similarity = self._cosine_similarity(query_embedding, embedding)
             if similarity >= min_similarity:
                 pattern = self._patterns[pattern_id]
-                similarities.append((pattern, float(similarity)))
+                # Filter by minimum uses
+                if pattern.success_count >= min_uses:
+                    similarities.append((pattern, float(similarity)))
 
         # Sort by similarity descending
         similarities.sort(key=lambda x: x[1], reverse=True)
