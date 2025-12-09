@@ -14,6 +14,8 @@ Components:
 - ConstructionGrammar: 3 katmanlı Construction yönetimi
 - ConstructionSelector: MessagePlan → Construction seçimi
 - ConstructionRealizer: Construction → Cümle üretimi
+- MVCSLoader: Minimum Viable Construction Set yükleyici
+- MVCSCategory: MVCS kategorileri
 
 3 Katman:
 - DEEP: Konuşma eylemleri, argüman yapıları, semantik roller
@@ -52,6 +54,12 @@ from .realizer import (
     RealizationResult,
 )
 
+from .mvcs import (
+    MVCSLoader,
+    MVCSCategory,
+    MVCSConfig,
+)
+
 __all__ = [
     # Enums
     "ConstructionLevel",
@@ -79,4 +87,8 @@ __all__ = [
     "generate_construction_id",
     "generate_slot_id",
     "generate_morphology_rule_id",
+    # MVCS
+    "MVCSLoader",
+    "MVCSCategory",
+    "MVCSConfig",
 ]
