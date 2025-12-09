@@ -10,6 +10,7 @@ Components:
 - Dialogue: DialogueAct, MessagePlan, SituationModel (Faz 4)
 - Risk: RiskLevel, RiskAssessment (Faz 4)
 - Construction: Construction Grammar (Faz 4)
+- Pipeline: ThoughtToSpeechPipeline, SelfCritique (Faz 4)
 
 Kullanim:
     from core.language import UEMChatAgent, ChatConfig
@@ -95,6 +96,17 @@ from .construction import (
     generate_slot_id,
 )
 
+# Faz 4 - Pipeline (Thought-to-Speech)
+from .pipeline import (
+    PipelineConfig,
+    SelfCritiqueConfig,
+    SelfCritique,
+    CritiqueResult,
+    ThoughtToSpeechPipeline,
+    PipelineResult,
+    generate_pipeline_result_id,
+)
+
 __all__ = [
     # Context
     "ContextBuilder",
@@ -155,4 +167,13 @@ __all__ = [
     "Construction",
     "generate_construction_id",
     "generate_slot_id",
+
+    # Faz 4 - Pipeline
+    "PipelineConfig",
+    "SelfCritiqueConfig",
+    "SelfCritique",
+    "CritiqueResult",
+    "ThoughtToSpeechPipeline",
+    "PipelineResult",
+    "generate_pipeline_result_id",
 ]
