@@ -645,6 +645,119 @@ class ConversationModel(Base):
 # DIALOGUE TURNS
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════
+# LEARNING - PATTERNS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class PatternTypeEnum(str, enum.Enum):
+    """Pattern type enum for database."""
+    response = "response"
+    behavior = "behavior"
+    emotion = "emotion"
+    language = "language"
+
+
+class PatternModel(Base):
+    """
+    Learning pattern - ogrenilen davranis patterni.
+    """
+    __tablename__ = "patterns"
+
+    id = Column(String, primary_key=True)
+
+    pattern_type = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+
+    # Embedding for similarity search (384 dimensions for all-MiniLM-L6-v2)
+    embedding = Column(ARRAY(Float), nullable=True)
+
+    # Statistics
+    success_count = Column(Integer, default=0)
+    failure_count = Column(Integer, default=0)
+    total_reward = Column(Float, default=0.0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=func.now())
+    last_used = Column(DateTime(timezone=True), nullable=True)
+
+    # Extra data
+    extra_data = Column(JSONB, default={})
+
+    __table_args__ = (
+        Index("idx_patterns_type", pattern_type),
+        Index("idx_patterns_created_at", created_at.desc()),
+        Index("idx_patterns_success_count", success_count.desc()),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "pattern_type": self.pattern_type,
+            "content": self.content,
+            "embedding": self.embedding,
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
+            "total_reward": self.total_reward,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used": self.last_used.isoformat() if self.last_used else None,
+            "extra_data": self.extra_data or {},
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEARNING - FEEDBACKS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class FeedbackTypeEnum(str, enum.Enum):
+    """Feedback type enum for database."""
+    positive = "positive"
+    negative = "negative"
+    neutral = "neutral"
+    explicit = "explicit"
+    implicit = "implicit"
+
+
+class FeedbackModel(Base):
+    """
+    Learning feedback - geri bildirim kaydi.
+    """
+    __tablename__ = "feedbacks"
+
+    id = Column(String, primary_key=True)
+
+    interaction_id = Column(String, nullable=False)
+    feedback_type = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+
+    timestamp = Column(DateTime(timezone=True), default=func.now())
+
+    user_id = Column(String, nullable=True)
+    context = Column(Text, nullable=True)
+    reason = Column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("value >= -1 AND value <= 1"),
+        Index("idx_feedbacks_interaction", interaction_id),
+        Index("idx_feedbacks_user", user_id),
+        Index("idx_feedbacks_timestamp", timestamp.desc()),
+        Index("idx_feedbacks_type", feedback_type),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "interaction_id": self.interaction_id,
+            "feedback_type": self.feedback_type,
+            "value": self.value,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "user_id": self.user_id,
+            "context": self.context,
+            "reason": self.reason,
+        }
+
+
 class DialogueTurnModel(Base):
     """
     Dialogue turn - tek bir mesaj.

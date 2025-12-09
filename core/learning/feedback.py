@@ -9,17 +9,24 @@ Ozellikler:
 - Implicit feedback: Davranistan cikarildi
 - Interaction tracking
 - User-based statistics
+- Optional PostgreSQL persistence
 """
 
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import logging
 
 from .types import (
     Feedback,
     FeedbackType,
     generate_feedback_id,
 )
+
+if TYPE_CHECKING:
+    from .persistence.feedback_repo import FeedbackRepository
+
+logger = logging.getLogger(__name__)
 
 
 class FeedbackCollector:
@@ -28,13 +35,52 @@ class FeedbackCollector:
 
     Hem explicit (kullanici soyledi) hem de implicit (davranistan
     cikarildi) geri bildirimleri toplar ve istatistik saglar.
+
+    Supports optional PostgreSQL persistence via repository.
+    If repository is None, operates in memory-only mode.
     """
 
-    def __init__(self):
-        """Initialize feedback collector."""
+    def __init__(self, repository: Optional["FeedbackRepository"] = None):
+        """
+        Initialize feedback collector.
+
+        Args:
+            repository: Feedback repository for DB persistence (opsiyonel)
+        """
+        self.repository = repository
         self._feedback_history: List[Feedback] = []
         self._interaction_feedback: Dict[str, List[Feedback]] = defaultdict(list)
         self._user_feedback: Dict[str, List[Feedback]] = defaultdict(list)
+
+        # Load from DB if repository available
+        if self.repository:
+            self._load_from_db()
+
+    def _load_from_db(self) -> None:
+        """Load feedbacks from database into memory."""
+        if not self.repository:
+            return
+
+        try:
+            feedbacks = self.repository.get_all()
+            for feedback in feedbacks:
+                self._feedback_history.append(feedback)
+                self._interaction_feedback[feedback.interaction_id].append(feedback)
+                if feedback.user_id:
+                    self._user_feedback[feedback.user_id].append(feedback)
+            logger.info(f"Loaded {len(feedbacks)} feedbacks from database")
+        except Exception as e:
+            logger.error(f"Error loading feedbacks from database: {e}")
+
+    def _save_to_db(self, feedback: Feedback) -> None:
+        """Save feedback to database."""
+        if not self.repository:
+            return
+
+        try:
+            self.repository.save(feedback)
+        except Exception as e:
+            logger.error(f"Error saving feedback to database: {e}")
 
     def record(
         self,
@@ -78,6 +124,9 @@ class FeedbackCollector:
 
         if user_id:
             self._user_feedback[user_id].append(feedback)
+
+        # Persist to database
+        self._save_to_db(feedback)
 
         return feedback
 
@@ -313,4 +362,12 @@ class FeedbackCollector:
         self._feedback_history.clear()
         self._interaction_feedback.clear()
         self._user_feedback.clear()
+
+        # Clear database
+        if self.repository:
+            try:
+                self.repository.clear()
+            except Exception as e:
+                logger.error(f"Error clearing feedbacks from database: {e}")
+
         return count
