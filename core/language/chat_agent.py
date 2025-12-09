@@ -10,6 +10,7 @@ Ozellikler:
 - Context building
 - Emotion tracking
 - Trust level integration
+- Thought-to-Speech Pipeline (Faz 4) - opsiyonel
 """
 
 from dataclasses import dataclass, field
@@ -20,6 +21,17 @@ import re
 
 from .context import ContextBuilder, ContextConfig
 from .llm_adapter import LLMAdapter, LLMConfig, LLMResponse, MockLLMAdapter
+
+# Pipeline imports - graceful
+try:
+    from .pipeline import (
+        ThoughtToSpeechPipeline,
+        PipelineConfig,
+        PipelineResult,
+    )
+    PIPELINE_AVAILABLE = True
+except ImportError:
+    PIPELINE_AVAILABLE = False
 
 # Memory imports - graceful
 try:
@@ -77,6 +89,9 @@ class ChatConfig:
     default_trust: float = 0.5
     enable_learning: bool = True
     use_learned_responses: bool = True
+    # Pipeline (Faz 4) ayarlari
+    use_pipeline: bool = False  # True ise LLM yerine pipeline kullan
+    pipeline_config: Optional[Any] = None  # PipelineConfig (opsiyonel)
 
 
 @dataclass
@@ -89,8 +104,9 @@ class ChatResponse:
     llm_response: Optional[LLMResponse] = None
     context_used: Optional[str] = None
     turn_id: Optional[str] = None
-    source: str = "llm"  # "llm" or "learned"
+    source: str = "llm"  # "llm", "learned", or "pipeline"
     interaction_id: Optional[str] = None
+    pipeline_result: Optional[Any] = None  # PipelineResult (Faz 4)
 
 
 class UEMChatAgent:
@@ -115,6 +131,7 @@ class UEMChatAgent:
         config: Optional[ChatConfig] = None,
         memory: Optional[Any] = None,
         llm: Optional[LLMAdapter] = None,
+        pipeline: Optional[Any] = None,
     ):
         """
         Initialize UEM Chat Agent.
@@ -123,6 +140,7 @@ class UEMChatAgent:
             config: Chat yapilandirmasi
             memory: MemoryStore instance (opsiyonel)
             llm: LLMAdapter instance (default: MockLLMAdapter)
+            pipeline: ThoughtToSpeechPipeline instance (opsiyonel)
         """
         self.config = config or ChatConfig()
 
@@ -140,6 +158,19 @@ class UEMChatAgent:
 
         # Context builder
         self.context_builder = ContextBuilder(self.config.context_config)
+
+        # Pipeline (Faz 4)
+        self._pipeline: Optional[ThoughtToSpeechPipeline] = None
+        self._use_pipeline = self.config.use_pipeline
+        self._last_pipeline_result: Optional[PipelineResult] = None
+
+        if pipeline is not None:
+            self._pipeline = pipeline
+            self._use_pipeline = True
+        elif self.config.use_pipeline and PIPELINE_AVAILABLE:
+            pipeline_config = self.config.pipeline_config
+            self._pipeline = ThoughtToSpeechPipeline(config=pipeline_config)
+            logger.info("Pipeline initialized")
 
         # Learning processor
         self.learning: Optional[LearningProcessor] = None
@@ -163,12 +194,14 @@ class UEMChatAgent:
             "total_turns": 0,
             "total_recalls": 0,
             "learned_responses": 0,
+            "pipeline_responses": 0,
         }
 
         logger.info(
             f"UEMChatAgent initialized (memory={self.memory is not None}, "
             f"llm={self.llm.get_provider().value}, "
-            f"learning={self.learning is not None})"
+            f"learning={self.learning is not None}, "
+            f"pipeline={self._pipeline is not None})"
         )
 
     # ===================================================================
@@ -242,11 +275,12 @@ class UEMChatAgent:
         Main chat method.
 
         Steps:
-        1. Try to get learned response
-        2. If no learned response, get from LLM
-        3. Save to memory
-        4. Learn from interaction
-        5. Return response
+        1. If pipeline mode: use Thought-to-Speech Pipeline
+        2. Else try to get learned response
+        3. If no learned response, get from LLM
+        4. Save to memory
+        5. Learn from interaction
+        6. Return response
 
         Args:
             user_message: User's message
@@ -268,6 +302,10 @@ class UEMChatAgent:
 
         # Detect intent early
         intent = self._detect_intent(user_message)
+
+        # Pipeline mode check
+        if self._use_pipeline and self._pipeline is not None:
+            return self._process_with_pipeline(user_message, intent, interaction_id)
 
         # 1. Try learned response first
         response_content = None
@@ -696,6 +734,253 @@ class UEMChatAgent:
             return "request"
 
         return "statement"
+
+    # ===================================================================
+    # PIPELINE (FAZ 4)
+    # ===================================================================
+
+    def _process_with_pipeline(
+        self,
+        user_message: str,
+        intent: str,
+        interaction_id: str
+    ) -> ChatResponse:
+        """
+        Process message using Thought-to-Speech Pipeline.
+
+        Args:
+            user_message: User's message
+            intent: Detected intent
+            interaction_id: Interaction ID
+
+        Returns:
+            ChatResponse
+        """
+        # Get conversation context for pipeline
+        context = self._get_pipeline_context()
+
+        # Process with pipeline
+        result = self._pipeline.process(user_message, context)
+        self._last_pipeline_result = result
+
+        # Extract content
+        response_content = result.output
+
+        # Extract emotion from pipeline result if available
+        emotion = None
+        if self.config.track_emotions:
+            if result.situation and result.situation.emotional_state:
+                es = result.situation.emotional_state
+                emotion = PADState(
+                    pleasure=es.valence,
+                    arousal=es.arousal,
+                    dominance=0.5,
+                    intensity=abs(es.valence),
+                    source="pipeline"
+                )
+                self._session_emotions.append(emotion)
+            else:
+                emotion = self._extract_emotion(response_content)
+                if emotion:
+                    self._session_emotions.append(emotion)
+
+        # Save to memory
+        turn_id = None
+        if self.memory is not None and hasattr(self.memory, 'conversation'):
+            # Save user turn
+            self.memory.conversation.add_turn(
+                self._current_session_id,
+                "user",
+                user_message,
+            )
+
+            # Save agent turn
+            turn_id = self.memory.conversation.add_turn(
+                self._current_session_id,
+                "agent",
+                response_content,
+            )
+
+        self._turn_count += 1
+        self._stats["total_turns"] += 1
+        self._stats["pipeline_responses"] += 1
+
+        return ChatResponse(
+            content=response_content,
+            emotion=emotion,
+            intent=intent,
+            llm_response=None,
+            context_used=None,
+            turn_id=turn_id,
+            source="pipeline",
+            interaction_id=interaction_id,
+            pipeline_result=result,
+        )
+
+    def _get_pipeline_context(self) -> Optional[List[Dict[str, str]]]:
+        """
+        Get conversation context for pipeline.
+
+        Returns:
+            List of message dicts or None
+        """
+        history = self.get_conversation_history(n=5)
+        if not history:
+            return None
+
+        context = []
+        for turn in history:
+            if hasattr(turn, 'role') and hasattr(turn, 'content'):
+                role = "user" if turn.role == "user" else "assistant"
+                context.append({"role": role, "content": turn.content})
+            elif isinstance(turn, dict):
+                role = turn.get('role', 'user')
+                role = "user" if role == "user" else "assistant"
+                context.append({"role": role, "content": turn.get('content', '')})
+
+        return context if context else None
+
+    def set_pipeline_mode(self, enabled: bool) -> bool:
+        """
+        Enable or disable pipeline mode.
+
+        Args:
+            enabled: True to enable, False to disable
+
+        Returns:
+            True if mode was changed successfully
+        """
+        if enabled and not PIPELINE_AVAILABLE:
+            logger.warning("Pipeline module not available")
+            return False
+
+        if enabled and self._pipeline is None:
+            # Create pipeline
+            pipeline_config = self.config.pipeline_config
+            self._pipeline = ThoughtToSpeechPipeline(config=pipeline_config)
+            logger.info("Pipeline created")
+
+        self._use_pipeline = enabled
+        logger.info(f"Pipeline mode: {'ON' if enabled else 'OFF'}")
+        return True
+
+    def get_pipeline_mode(self) -> bool:
+        """
+        Get current pipeline mode.
+
+        Returns:
+            True if pipeline mode is enabled
+        """
+        return self._use_pipeline
+
+    def get_pipeline_status(self) -> Dict[str, Any]:
+        """
+        Get pipeline status information.
+
+        Returns:
+            Status dict
+        """
+        status = {
+            "enabled": self._use_pipeline,
+            "available": PIPELINE_AVAILABLE,
+            "pipeline_exists": self._pipeline is not None,
+        }
+
+        if self._pipeline is not None:
+            status["pipeline_info"] = self._pipeline.get_pipeline_info()
+
+        return status
+
+    def get_last_pipeline_result(self) -> Optional[Any]:
+        """
+        Get last pipeline processing result.
+
+        Returns:
+            PipelineResult or None
+        """
+        return self._last_pipeline_result
+
+    def get_pipeline_debug_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Get debug information from last pipeline processing.
+
+        Returns:
+            Debug info dict or None
+        """
+        if self._last_pipeline_result is None:
+            return None
+
+        result = self._last_pipeline_result
+        debug = {
+            "success": result.success,
+            "output": result.output[:100] + "..." if len(result.output) > 100 else result.output,
+        }
+
+        # Situation info
+        if result.situation:
+            debug["situation"] = {
+                "id": result.situation.id,
+                "topic": result.situation.topic_domain,
+                "understanding": result.situation.understanding_score,
+            }
+            if result.situation.emotional_state:
+                debug["situation"]["emotion"] = {
+                    "valence": result.situation.emotional_state.valence,
+                    "arousal": result.situation.emotional_state.arousal,
+                }
+            if result.situation.intentions:
+                debug["situation"]["intentions"] = [
+                    i.goal for i in result.situation.intentions[:3]
+                ]
+            if result.situation.risks:
+                debug["situation"]["risks"] = [
+                    {"type": r.category, "level": r.level}
+                    for r in result.situation.risks[:3]
+                ]
+
+        # Message plan info
+        if result.message_plan:
+            debug["message_plan"] = {
+                "id": result.message_plan.id,
+                "acts": [a.value for a in result.message_plan.dialogue_acts],
+                "tone": result.message_plan.tone.value,
+                "intent": result.message_plan.primary_intent,
+            }
+
+        # Risk info
+        if result.risk_assessment:
+            debug["risk"] = {
+                "level": result.risk_assessment.level.value,
+                "score": result.risk_assessment.overall_score,
+            }
+
+        # Approval info
+        if result.approval:
+            debug["approval"] = {
+                "decision": result.approval.decision.value,
+                "approver": result.approval.approver,
+            }
+
+        # Critique info
+        if result.critique_result:
+            debug["critique"] = {
+                "passed": result.critique_result.passed,
+                "score": result.critique_result.score,
+                "violations": len(result.critique_result.violations),
+            }
+
+        # Constructions
+        if result.constructions_used:
+            debug["constructions"] = len(result.constructions_used)
+
+        # Metadata
+        if result.metadata:
+            debug["metadata"] = {
+                k: v for k, v in result.metadata.items()
+                if k not in ["id"]
+            }
+
+        return debug
 
 
 # ========================================================================

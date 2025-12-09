@@ -9,6 +9,7 @@ Ozellikler:
 - Komut destegi (/help, /quit, /history, /recall, /stats, /debug, /clear)
 - Debug modu
 - Session yonetimi
+- Pipeline modu (Faz 4) - /pipeline on/off/status, /pipeinfo
 """
 
 import os
@@ -43,17 +44,19 @@ class CLIChat:
         cli.start()
 
     Komutlar:
-        /help    - Komutlari goster
-        /quit    - Cikis
-        /exit    - Cikis
-        /history - Son 10 mesaji goster
-        /recall  - Ani ara (semantic search)
-        /stats   - Session istatistikleri
-        /debug   - Debug modunu ac/kapat
-        /clear   - Ekrani temizle
+        /help     - Komutlari goster
+        /quit     - Cikis
+        /exit     - Cikis
+        /history  - Son 10 mesaji goster
+        /recall   - Ani ara (semantic search)
+        /stats    - Session istatistikleri
+        /debug    - Debug modunu ac/kapat
+        /clear    - Ekrani temizle
         /good, /+ - Pozitif feedback
         /bad, /-  - Negatif feedback
         /learned  - Ogrenilen pattern sayisi
+        /pipeline - Pipeline modu (on/off/status)
+        /pipeinfo - Son pipeline isleminin detaylari
     """
 
     def __init__(
@@ -244,6 +247,10 @@ class CLIChat:
             self._cmd_bad(args)
         elif cmd in ["/learned", "/patterns"]:
             self._cmd_learned()
+        elif cmd in ["/pipeline", "/pipe", "/p"]:
+            self._cmd_pipeline(args)
+        elif cmd in ["/pipeinfo", "/pi", "/pdebug"]:
+            self._cmd_pipeinfo()
         else:
             self._cmd_unknown(cmd)
 
@@ -260,7 +267,13 @@ class CLIChat:
         print("/good, /+     - Pozitif feedback (son cevap icin)")
         print("/bad, /-      - Negatif feedback (son cevap icin)")
         print("/learned      - Ogrenilen pattern sayisi")
-        print("----------------")
+        print("")
+        print("--- Pipeline (Faz 4) ---")
+        print("/pipeline on  - Pipeline modunu ac")
+        print("/pipeline off - Pipeline modunu kapat (LLM kullan)")
+        print("/pipeline     - Mevcut pipeline durumu")
+        print("/pipeinfo     - Son islemin detaylari")
+        print("------------------------")
 
     def _cmd_quit(self) -> None:
         """Quit chat."""
@@ -420,6 +433,117 @@ class CLIChat:
                 avg_score = feedback_stats.get('average_score', 0)
                 print(f"[Toplam feedback: {total_feedback}, Ort. skor: {avg_score:.2f}]")
 
+    def _cmd_pipeline(self, args: str = "") -> None:
+        """
+        Pipeline mode control.
+
+        Args:
+            args: "on", "off", or "status" (default: status)
+        """
+        if not hasattr(self.agent, 'set_pipeline_mode'):
+            print("\n[Pipeline ozelligi mevcut degil]")
+            return
+
+        args_lower = args.lower().strip()
+
+        if args_lower == "on":
+            success = self.agent.set_pipeline_mode(True)
+            if success:
+                print("\n[Pipeline modu: ACIK]")
+                print("[LLM yerine Thought-to-Speech Pipeline kullaniliyor]")
+            else:
+                print("\n[!] Pipeline acilamadi (modul mevcut degil)]")
+
+        elif args_lower == "off":
+            self.agent.set_pipeline_mode(False)
+            print("\n[Pipeline modu: KAPALI]")
+            print("[LLM kullaniliyor]")
+
+        else:
+            # Status
+            status = self.agent.get_pipeline_status()
+            enabled = status.get("enabled", False)
+            available = status.get("available", False)
+
+            print("\n--- Pipeline Durumu ---")
+            print(f"  Mod: {'ACIK' if enabled else 'KAPALI'}")
+            print(f"  Kullanilabilir: {'Evet' if available else 'Hayir'}")
+
+            if status.get("pipeline_exists"):
+                info = status.get("pipeline_info", {})
+                config = info.get("config", {})
+                print(f"  Self-critique: {'Evet' if config.get('self_critique_enabled') else 'Hayir'}")
+                print(f"  Risk kontrolu: {'Evet' if config.get('risk_assessment_enabled') else 'Hayir'}")
+                print(f"  Construction sayisi: {info.get('construction_count', 0)}")
+
+            print("-----------------------")
+
+    def _cmd_pipeinfo(self) -> None:
+        """Show last pipeline processing details."""
+        if not hasattr(self.agent, 'get_pipeline_debug_info'):
+            print("\n[Pipeline ozelligi mevcut degil]")
+            return
+
+        debug = self.agent.get_pipeline_debug_info()
+
+        if debug is None:
+            print("\n[Pipeline henuz kullanilmadi]")
+            return
+
+        print("\n--- Son Pipeline Islemi ---")
+        print(f"  Basari: {'Evet' if debug.get('success') else 'Hayir'}")
+        print(f"  Cikti: {debug.get('output', 'N/A')}")
+
+        # Situation
+        if "situation" in debug:
+            sit = debug["situation"]
+            print(f"\n  Durum:")
+            print(f"    Konu: {sit.get('topic', 'N/A')}")
+            print(f"    Anlama: {sit.get('understanding', 0):.2f}")
+            if "emotion" in sit:
+                print(f"    Duygu: V={sit['emotion'].get('valence', 0):.2f}, A={sit['emotion'].get('arousal', 0):.2f}")
+            if "intentions" in sit:
+                print(f"    Niyetler: {', '.join(sit['intentions'])}")
+            if "risks" in sit:
+                risks = [f"{r['type']}({r['level']:.1f})" for r in sit["risks"]]
+                print(f"    Riskler: {', '.join(risks)}")
+
+        # Message plan
+        if "message_plan" in debug:
+            plan = debug["message_plan"]
+            print(f"\n  Mesaj Plani:")
+            print(f"    Acts: {', '.join(plan.get('acts', []))}")
+            print(f"    Ton: {plan.get('tone', 'N/A')}")
+            print(f"    Intent: {plan.get('intent', 'N/A')}")
+
+        # Risk
+        if "risk" in debug:
+            risk = debug["risk"]
+            print(f"\n  Risk:")
+            print(f"    Seviye: {risk.get('level', 'N/A')}")
+            print(f"    Skor: {risk.get('score', 0):.2f}")
+
+        # Approval
+        if "approval" in debug:
+            app = debug["approval"]
+            print(f"\n  Onay:")
+            print(f"    Karar: {app.get('decision', 'N/A')}")
+            print(f"    Onaylayan: {app.get('approver', 'N/A')}")
+
+        # Critique
+        if "critique" in debug:
+            crit = debug["critique"]
+            print(f"\n  Self-Critique:")
+            print(f"    Gecti: {'Evet' if crit.get('passed') else 'Hayir'}")
+            print(f"    Skor: {crit.get('score', 0):.2f}")
+            print(f"    Ihlal: {crit.get('violations', 0)}")
+
+        # Constructions
+        if "constructions" in debug:
+            print(f"\n  Kullanilan construction: {debug['constructions']}")
+
+        print("---------------------------")
+
     # ===================================================================
     # MESSAGE HANDLING
     # ===================================================================
@@ -447,6 +571,7 @@ def main():
         python -m interface.chat.cli
         python -m interface.chat.cli --debug
         python -m interface.chat.cli --user my_user
+        python -m interface.chat.cli --pipeline
     """
     parser = argparse.ArgumentParser(
         description="UEM Chat CLI - Terminal tabanli chat arayuzu"
@@ -466,6 +591,11 @@ def main():
         action="store_true",
         help="Mock LLM kullan (test icin)"
     )
+    parser.add_argument(
+        "--pipeline", "-p",
+        action="store_true",
+        help="Pipeline modunda baslat (LLM yerine Thought-to-Speech Pipeline)"
+    )
 
     args = parser.parse_args()
 
@@ -474,12 +604,16 @@ def main():
     logging.basicConfig(level=log_level)
 
     try:
+        # Create config with pipeline option
+        from core.language import ChatConfig
+        config = ChatConfig(use_pipeline=args.pipeline)
+
         # Create agent
         if args.mock and UEM_AVAILABLE:
             from core.language import MockLLMAdapter
-            agent = UEMChatAgent(llm=MockLLMAdapter())
+            agent = UEMChatAgent(config=config, llm=MockLLMAdapter())
         else:
-            agent = None  # Will create default
+            agent = UEMChatAgent(config=config)
 
         # Create and start CLI
         cli = CLIChat(
@@ -487,6 +621,11 @@ def main():
             user_id=args.user,
             show_debug=args.debug,
         )
+
+        # Print pipeline status at start
+        if args.pipeline:
+            print("[Pipeline modu ACIK - LLM kullanilmiyor]")
+
         cli.start()
 
     except KeyboardInterrupt:
