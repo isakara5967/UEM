@@ -9,10 +9,12 @@ Ozellikler:
 - Embedding-based similarity search
 - Success/failure tracking
 - Pattern pruning
+- Optional PostgreSQL persistence
 """
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+import logging
 
 import numpy as np
 
@@ -25,6 +27,9 @@ from .types import (
 # Conditional import for EmbeddingEncoder
 if TYPE_CHECKING:
     from core.memory.embeddings import EmbeddingEncoder
+    from .persistence.pattern_repo import PatternRepository
+
+logger = logging.getLogger(__name__)
 
 
 class PatternStorage:
@@ -33,18 +38,57 @@ class PatternStorage:
 
     Patternleri embedding'ler ile indeksler ve benzerlik
     aramasi yapilmasini saglar.
+
+    Supports optional PostgreSQL persistence via repository.
+    If repository is None, operates in memory-only mode.
     """
 
-    def __init__(self, encoder: Optional["EmbeddingEncoder"] = None):
+    def __init__(
+        self,
+        encoder: Optional["EmbeddingEncoder"] = None,
+        repository: Optional["PatternRepository"] = None
+    ):
         """
         Initialize pattern storage.
 
         Args:
             encoder: Embedding encoder (opsiyonel)
+            repository: Pattern repository for DB persistence (opsiyonel)
         """
         self.encoder = encoder
+        self.repository = repository
         self._patterns: Dict[str, Pattern] = {}
         self._embeddings: Dict[str, np.ndarray] = {}
+
+        # Load from DB if repository available
+        if self.repository:
+            self._load_from_db()
+
+    def _load_from_db(self) -> None:
+        """Load patterns from database into memory."""
+        if not self.repository:
+            return
+
+        try:
+            patterns = self.repository.get_all()
+            for pattern in patterns:
+                self._patterns[pattern.id] = pattern
+                # Reconstruct embedding array if available
+                if pattern.embedding:
+                    self._embeddings[pattern.id] = np.array(pattern.embedding)
+            logger.info(f"Loaded {len(patterns)} patterns from database")
+        except Exception as e:
+            logger.error(f"Error loading patterns from database: {e}")
+
+    def _save_to_db(self, pattern: Pattern) -> None:
+        """Save pattern to database."""
+        if not self.repository:
+            return
+
+        try:
+            self.repository.save(pattern)
+        except Exception as e:
+            logger.error(f"Error saving pattern to database: {e}")
 
     def store(
         self,
@@ -88,6 +132,9 @@ class PatternStorage:
         # Store embedding for similarity search
         if embedding_array is not None:
             self._embeddings[pattern_id] = embedding_array
+
+        # Persist to database
+        self._save_to_db(pattern)
 
         return pattern
 
@@ -179,6 +226,9 @@ class PatternStorage:
         pattern.total_reward += reward
         pattern.last_used = datetime.now()
 
+        # Persist to database
+        self._save_to_db(pattern)
+
     def get_best_patterns(
         self,
         pattern_type: PatternType,
@@ -261,6 +311,12 @@ class PatternStorage:
             del self._patterns[pattern_id]
             if pattern_id in self._embeddings:
                 del self._embeddings[pattern_id]
+            # Delete from database
+            if self.repository:
+                try:
+                    self.repository.delete(pattern_id)
+                except Exception as e:
+                    logger.error(f"Error deleting pattern from database: {e}")
 
         return len(to_remove)
 
@@ -316,6 +372,14 @@ class PatternStorage:
         count = len(self._patterns)
         self._patterns.clear()
         self._embeddings.clear()
+
+        # Clear database
+        if self.repository:
+            try:
+                self.repository.clear()
+            except Exception as e:
+                logger.error(f"Error clearing patterns from database: {e}")
+
         return count
 
     def get_all(self, pattern_type: Optional[PatternType] = None) -> List[Pattern]:
