@@ -23,6 +23,9 @@ Components:
 - AdaptationConfig: Adaptasyon konfigurasyonu
 - BehaviorAdapter: Davranis adaptasyonu
 - LearningProcessor: Ana ogrenme koordinatoru
+- MDLConfig: MDL konfigurasyonu
+- MDLScore: MDL degerlendirme sonucu
+- ApproximateMDL: Pattern degerlendirme (MDL prensibi)
 """
 
 from .types import (
@@ -78,6 +81,12 @@ from .generalization import RuleExtractor
 
 from .processor import LearningProcessor
 
+from .mdl import (
+    MDLConfig,
+    MDLScore,
+    ApproximateMDL,
+)
+
 
 __all__ = [
     # Enums
@@ -116,4 +125,7 @@ __all__ = [
     "BehaviorAdapter",
     "RuleExtractor",
     "LearningProcessor",
+    "MDLConfig",
+    "MDLScore",
+    "ApproximateMDL",
 ]
