@@ -12,6 +12,8 @@ UEM v2 - Thought-to-Speech Pipeline kontrol bileşeni.
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.utils.text import normalize_turkish
+
 from .types import (
     RiskLevel,
     RiskCategory,
@@ -320,12 +322,12 @@ class RiskScorer:
                     source="situation"
                 ))
 
-        # 2. Acil durum belirteçleri - context'te arama
-        emergency_keywords = ["intihar", "kendine zarar", "ölmek", "acil"]
-        context_text = str(situation.context).lower()
+        # 2. Acil durum belirteçleri - context'te arama (normalized)
+        emergency_keywords = ["intihar", "kendine zarar", "olmek", "acil"]
+        context_text = normalize_turkish(str(situation.context))
 
         # Key entities'te de ara
-        entities_text = " ".join(situation.key_entities).lower()
+        entities_text = normalize_turkish(" ".join(situation.key_entities))
         search_text = context_text + " " + entities_text
 
         for keyword in emergency_keywords:
@@ -507,16 +509,16 @@ class RiskScorer:
 
     def _build_risk_patterns(self) -> Dict[str, List[str]]:
         """
-        Risk keyword pattern'leri.
+        Risk keyword pattern'leri (normalized).
 
         Returns:
             Pattern sözlüğü
         """
         return {
-            "safety": ["intihar", "kendine zarar", "ölmek", "öldürmek", "acil"],
-            "ethical": ["yasadışı", "hile", "dolandır", "hackle", "çal"],
-            "privacy": ["şifre", "kişisel bilgi", "adres", "tc kimlik", "banka"],
-            "manipulation": ["kandır", "manipüle", "zorla", "tehdit"]
+            "safety": ["intihar", "kendine zarar", "olmek", "oldurmek", "acil"],
+            "ethical": ["yasadisi", "hile", "dolandir", "hackle", "cal"],
+            "privacy": ["sifre", "kisisel bilgi", "adres", "tc kimlik", "banka"],
+            "manipulation": ["kandir", "manipule", "zorla", "tehdit"]
         }
 
     def get_risk_patterns(self) -> Dict[str, List[str]]:
