@@ -3,9 +3,10 @@ tests/unit/test_learning_persistence.py
 
 Tests for Learning Module PostgreSQL Persistence.
 
-Uses SQLite in-memory database for testing.
+Uses existing PostgreSQL database with transaction rollback for isolation.
 """
 
+import os
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, MagicMock, patch
@@ -33,18 +34,44 @@ from core.learning.feedback import FeedbackCollector
 # Fixtures
 # ============================================================================
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def db_engine():
-    """Create in-memory SQLite engine for testing."""
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    Base.metadata.create_all(engine)
-    return engine
+    """Use existing PostgreSQL database."""
+    db_url = os.getenv(
+        "DATABASE_URL",
+        "postgresql://uem:uem_secret@localhost:5432/uem_v2"
+    )
+    engine = create_engine(db_url, echo=False)
+
+    # Create learning tables if not exist
+    PatternModel.__table__.create(engine, checkfirst=True)
+    FeedbackModel.__table__.create(engine, checkfirst=True)
+
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture
-def session_factory(db_engine):
-    """Create session factory for testing."""
-    return sessionmaker(bind=db_engine)
+def db_session(db_engine):
+    """Create session with transaction rollback for test isolation."""
+    connection = db_engine.connect()
+    transaction = connection.begin()
+    Session = sessionmaker(bind=connection)
+    session = Session()
+
+    yield session
+
+    # Rollback after test - no data pollution
+    session.close()
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def session_factory(db_session):
+    """Create session factory that returns the test session."""
+    # Return a factory that always returns the same session for transaction isolation
+    return lambda: db_session
 
 
 @pytest.fixture
