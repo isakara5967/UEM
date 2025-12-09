@@ -13,6 +13,7 @@ Components:
 - EmotionalState: Duygusal durum
 - SituationModel: Algı/Bellek/Bilişim çıktısı
 - MessagePlan: Executive karar çıktısı
+- SituationBuilder: Perception + Memory + Cognition → SituationModel
 """
 
 from .types import (
@@ -30,6 +31,11 @@ from .types import (
     generate_message_plan_id,
 )
 
+from .situation_builder import (
+    SituationBuilder,
+    SituationBuilderConfig,
+)
+
 __all__ = [
     # Enums
     "DialogueAct",
@@ -43,6 +49,9 @@ __all__ = [
     "EmotionalState",
     "SituationModel",
     "MessagePlan",
+    # Builder
+    "SituationBuilder",
+    "SituationBuilderConfig",
     # Utility functions
     "generate_situation_id",
     "generate_message_plan_id",

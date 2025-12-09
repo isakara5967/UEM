@@ -1,0 +1,502 @@
+"""
+core/language/dialogue/situation_builder.py
+
+SituationBuilder - Perception + Memory + Cognition → SituationModel
+
+Kullanıcı mesajından durum modeli çıkarır:
+- Aktörler kim?
+- Niyetler ne?
+- Riskler ne?
+- Duygusal durum ne?
+- Ne kadar anladık?
+
+UEM v2 - Thought-to-Speech Pipeline bileşeni.
+"""
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+import uuid
+
+from .types import (
+    SituationModel,
+    Actor,
+    Intention,
+    Risk,
+    EmotionalState,
+    generate_situation_id,
+)
+
+
+def _generate_intention_id() -> str:
+    """Generate unique intention ID."""
+    return f"int_{uuid.uuid4().hex[:12]}"
+
+
+@dataclass
+class SituationBuilderConfig:
+    """
+    SituationBuilder konfigürasyonu.
+
+    Attributes:
+        max_actors: Maksimum aktör sayısı
+        max_intentions: Maksimum niyet sayısı
+        max_risks: Maksimum risk sayısı
+        min_understanding_threshold: Minimum anlama eşiği
+        enable_emotion_detection: Duygu algılama aktif mi?
+        enable_risk_detection: Risk algılama aktif mi?
+    """
+    max_actors: int = 10
+    max_intentions: int = 20
+    max_risks: int = 10
+    min_understanding_threshold: float = 0.3
+    enable_emotion_detection: bool = True
+    enable_risk_detection: bool = True
+
+
+class SituationBuilder:
+    """
+    Perception + Memory + Cognition → SituationModel
+
+    Kullanıcı mesajından durum modeli çıkarır:
+    - Aktörler kim?
+    - Niyetler ne?
+    - Riskler ne?
+    - Duygusal durum ne?
+    - Ne kadar anladık?
+
+    Kullanım:
+        builder = SituationBuilder()
+        situation = builder.build("Merhaba, nasılsın?")
+        print(situation.topic_domain)  # "general"
+        print(situation.understanding_score)  # 0.5
+
+        # Bağlam ile
+        context = [
+            {"role": "user", "content": "Bir sorunum var"},
+            {"role": "assistant", "content": "Dinliyorum"}
+        ]
+        situation = builder.build("Çok üzgünüm", context)
+    """
+
+    def __init__(
+        self,
+        config: Optional[SituationBuilderConfig] = None,
+        perception_processor: Optional[Any] = None,
+        memory_search: Optional[Any] = None,
+        cognition_processor: Optional[Any] = None
+    ):
+        """
+        SituationBuilder oluştur.
+
+        Args:
+            config: Builder konfigürasyonu
+            perception_processor: Perception modülü (opsiyonel)
+            memory_search: Memory search modülü (opsiyonel)
+            cognition_processor: Cognition modülü (opsiyonel)
+        """
+        self.config = config or SituationBuilderConfig()
+        self.perception = perception_processor
+        self.memory = memory_search
+        self.cognition = cognition_processor
+
+    def build(
+        self,
+        user_message: str,
+        conversation_context: Optional[List[Dict[str, str]]] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> SituationModel:
+        """
+        Ana build metodu - SituationModel oluştur.
+
+        Args:
+            user_message: Kullanıcı mesajı
+            conversation_context: Konuşma geçmişi [{"role": "user", "content": "..."}]
+            metadata: Ek metadata
+
+        Returns:
+            SituationModel: Durum modeli
+        """
+        situation_id = generate_situation_id()
+
+        # 1. Aktörleri çıkar
+        actors = self._extract_actors(user_message, conversation_context)
+
+        # 2. Niyetleri çıkar
+        intentions = self._extract_intentions(user_message, actors)
+
+        # 3. Riskleri değerlendir
+        risks: List[Risk] = []
+        if self.config.enable_risk_detection:
+            risks = self._detect_risks(user_message, intentions)
+
+        # 4. Duygusal durumu algıla
+        emotional_state: Optional[EmotionalState] = None
+        if self.config.enable_emotion_detection:
+            emotional_state = self._detect_emotion(user_message)
+
+        # 5. Konu alanını belirle
+        topic_domain = self._determine_topic(user_message)
+
+        # 6. Bağlam özeti oluştur
+        context_summary = self._summarize_context(user_message, conversation_context)
+
+        # 7. Anlama skorunu hesapla
+        understanding_score = self._calculate_understanding(
+            actors, intentions, risks, emotional_state
+        )
+
+        return SituationModel(
+            id=situation_id,
+            actors=actors,
+            intentions=intentions,
+            risks=risks,
+            emotional_state=emotional_state,
+            topic_domain=topic_domain,
+            understanding_score=understanding_score,
+            context={"summary": context_summary, **(metadata or {})}
+        )
+
+    def _extract_actors(
+        self,
+        message: str,
+        context: Optional[List[Dict[str, str]]] = None
+    ) -> List[Actor]:
+        """
+        Mesajdan aktörleri çıkar.
+
+        Her zaman user ve assistant (UEM) var.
+        Ek olarak mesajda 3. kişiler varsa onları da ekle.
+
+        Args:
+            message: Kullanıcı mesajı
+            context: Konuşma geçmişi
+
+        Returns:
+            List[Actor]: Aktör listesi
+        """
+        actors = []
+
+        # Her zaman user ve assistant var
+        actors.append(Actor(
+            id="user",
+            role="user",
+            name=None,
+            traits={},
+            context={}
+        ))
+        actors.append(Actor(
+            id="assistant",
+            role="assistant",
+            name="UEM",
+            traits={},
+            context={}
+        ))
+
+        # Mesajda 3. kişiler var mı?
+        # Basit heuristik: isim, "o", "onlar", "arkadaşım" vs.
+        third_party_indicators = [
+            "arkadaşım", "annem", "babam", "kardeşim", "eşim",
+            "müdürüm", "öğretmenim", "doktorum", "komşum",
+            "o ", "onlar", "onun", "ona"
+        ]
+
+        message_lower = message.lower()
+        found_count = 0
+        for i, indicator in enumerate(third_party_indicators):
+            if indicator in message_lower:
+                actors.append(Actor(
+                    id=f"third_party_{i}",
+                    role="third_party",
+                    name=indicator.strip(),
+                    traits={"mentioned_as": indicator},
+                    context={}
+                ))
+                found_count += 1
+                if len(actors) >= self.config.max_actors:
+                    break
+
+        return actors[:self.config.max_actors]
+
+    def _extract_intentions(
+        self,
+        message: str,
+        actors: List[Actor]
+    ) -> List[Intention]:
+        """
+        Mesajdan niyetleri çıkar.
+
+        Args:
+            message: Kullanıcı mesajı
+            actors: Aktör listesi
+
+        Returns:
+            List[Intention]: Niyet listesi
+        """
+        intentions = []
+        message_lower = message.lower()
+
+        # Kullanıcı niyetleri (basit heuristik)
+        intent_patterns = {
+            "help": ["yardım", "yardım et", "nasıl", "ne yapmalı"],
+            "inform": ["bilgi", "öğrenmek", "nedir", "ne demek"],
+            "ask": ["?", "mi ", "mı ", "mu ", "mü ", "soru"],
+            "complain": ["şikayet", "problem", "sorun", "kötü"],
+            "request": ["ister", "istiyorum", "lütfen", "rica"],
+            "greet": ["merhaba", "selam", "günaydın", "iyi akşam"],
+            "thank": ["teşekkür", "sağol", "eyvallah"],
+            "express_emotion": ["mutlu", "üzgün", "kızgın", "endişe", "korku"]
+        }
+
+        user_actor = next((a for a in actors if a.role == "user"), None)
+        if user_actor:
+            for goal, patterns in intent_patterns.items():
+                for pattern in patterns:
+                    if pattern in message_lower:
+                        intentions.append(Intention(
+                            id=_generate_intention_id(),
+                            actor_id=user_actor.id,
+                            goal=goal,
+                            sub_goals=[],
+                            confidence=0.7,
+                            evidence=[f"Pattern matched: '{pattern}'"]
+                        ))
+                        break
+
+        # Eğer hiç niyet bulunamadıysa, genel bir niyet ekle
+        if not intentions and user_actor:
+            intentions.append(Intention(
+                id=_generate_intention_id(),
+                actor_id=user_actor.id,
+                goal="communicate",
+                sub_goals=[],
+                confidence=0.5,
+                evidence=["Default intention"]
+            ))
+
+        return intentions[:self.config.max_intentions]
+
+    def _detect_risks(
+        self,
+        message: str,
+        intentions: List[Intention]
+    ) -> List[Risk]:
+        """
+        Mesajdan riskleri algıla.
+
+        Args:
+            message: Kullanıcı mesajı
+            intentions: Niyet listesi
+
+        Returns:
+            List[Risk]: Risk listesi
+        """
+        risks = []
+        message_lower = message.lower()
+
+        # Risk pattern'leri
+        risk_patterns = {
+            "safety": {
+                "keywords": ["intihar", "kendine zarar", "ölmek", "yaralanma", "kaza"],
+                "level": 0.9
+            },
+            "emotional": {
+                "keywords": ["depresyon", "anksiyete", "panik", "çok kötü", "dayanamıyorum"],
+                "level": 0.7
+            },
+            "ethical": {
+                "keywords": ["yasadışı", "hile", "dolandır", "çal", "hackle"],
+                "level": 0.8
+            },
+            "relational": {
+                "keywords": ["ayrılık", "boşanma", "kavga", "terk"],
+                "level": 0.5
+            }
+        }
+
+        for risk_type, config in risk_patterns.items():
+            for keyword in config["keywords"]:
+                if keyword in message_lower:
+                    mitigations = self._get_risk_mitigations(risk_type)
+                    risks.append(Risk(
+                        category=risk_type,
+                        level=config["level"],
+                        description=f"'{keyword}' ifadesi algılandı",
+                        mitigation=mitigations[0] if mitigations else None
+                    ))
+                    break
+
+        return risks[:self.config.max_risks]
+
+    def _get_risk_mitigations(self, risk_type: str) -> List[str]:
+        """
+        Risk tipine göre önerilen aksiyonlar.
+
+        Args:
+            risk_type: Risk kategorisi
+
+        Returns:
+            List[str]: Azaltma önerileri
+        """
+        mitigations = {
+            "safety": ["Profesyonel yardım öner", "Acil durum bilgisi ver"],
+            "emotional": ["Empati kur", "Destek kaynakları öner"],
+            "ethical": ["Etik sınırları belirt", "Alternatif öner"],
+            "relational": ["Dinle", "Tarafsız kal"]
+        }
+        return mitigations.get(risk_type, ["Dikkatli ol"])
+
+    def _detect_emotion(self, message: str) -> EmotionalState:
+        """
+        Mesajdan duygusal durumu algıla.
+
+        PAD (Pleasure-Arousal-Dominance) modeli kullanır.
+
+        Args:
+            message: Kullanıcı mesajı
+
+        Returns:
+            EmotionalState: Duygusal durum
+        """
+        message_lower = message.lower()
+
+        # Basit duygu pattern'leri
+        valence = 0.0
+        arousal = 0.0
+        primary_emotion: Optional[str] = None
+
+        positive_words = ["mutlu", "harika", "güzel", "teşekkür", "seviyorum", "süper"]
+        negative_words = ["üzgün", "kötü", "sinirli", "kızgın", "nefret", "berbat"]
+        high_arousal_words = ["heyecan", "panik", "acil", "çok", "aşırı"]
+        low_arousal_words = ["sakin", "huzur", "rahat", "yavaş"]
+
+        for word in positive_words:
+            if word in message_lower:
+                valence += 0.3
+                primary_emotion = primary_emotion or "positive"
+
+        for word in negative_words:
+            if word in message_lower:
+                valence -= 0.3
+                primary_emotion = primary_emotion or "negative"
+
+        for word in high_arousal_words:
+            if word in message_lower:
+                arousal += 0.2
+
+        for word in low_arousal_words:
+            if word in message_lower:
+                arousal -= 0.2
+
+        # Sınırla
+        valence = max(-1.0, min(1.0, valence))
+        arousal = max(-1.0, min(1.0, arousal))
+
+        return EmotionalState(
+            valence=valence,
+            arousal=arousal,
+            dominance=0.0,
+            primary_emotion=primary_emotion,
+            secondary_emotions=[],
+            confidence=0.5
+        )
+
+    def _determine_topic(self, message: str) -> str:
+        """
+        Mesajın konu alanını belirle.
+
+        Args:
+            message: Kullanıcı mesajı
+
+        Returns:
+            str: Konu alanı
+        """
+        message_lower = message.lower()
+
+        topic_patterns = {
+            "technology": ["bilgisayar", "yazılım", "kod", "program", "internet"],
+            "health": ["sağlık", "hastalık", "doktor", "ilaç", "ağrı"],
+            "relationships": ["ilişki", "aile", "arkadaş", "sevgili"],
+            "work": ["iş", "kariyer", "maaş", "patron", "çalışma"],
+            "education": ["okul", "ders", "sınav", "öğren", "eğitim"],
+            "emotions": ["hissediyorum", "duygu", "mutlu", "üzgün"],
+            "help": ["yardım", "nasıl", "ne yapmalı"]
+        }
+
+        for topic, patterns in topic_patterns.items():
+            for pattern in patterns:
+                if pattern in message_lower:
+                    return topic
+
+        return "general"
+
+    def _summarize_context(
+        self,
+        message: str,
+        context: Optional[List[Dict[str, str]]] = None
+    ) -> str:
+        """
+        Bağlam özeti oluştur.
+
+        Args:
+            message: Kullanıcı mesajı
+            context: Konuşma geçmişi
+
+        Returns:
+            str: Bağlam özeti
+        """
+        if not context:
+            truncated = message[:100] + "..." if len(message) > 100 else message
+            return f"Kullanıcı mesajı: {truncated}"
+
+        summary_parts = []
+        for turn in context[-3:]:  # Son 3 tur
+            role = turn.get("role", "unknown")
+            content = turn.get("content", "")[:50]
+            summary_parts.append(f"{role}: {content}...")
+
+        return " | ".join(summary_parts)
+
+    def _calculate_understanding(
+        self,
+        actors: List[Actor],
+        intentions: List[Intention],
+        risks: List[Risk],
+        emotional_state: Optional[EmotionalState]
+    ) -> float:
+        """
+        Durumu ne kadar anladığımızı hesapla.
+
+        Args:
+            actors: Aktör listesi
+            intentions: Niyet listesi
+            risks: Risk listesi
+            emotional_state: Duygusal durum
+
+        Returns:
+            float: Anlama skoru (0.0-1.0)
+        """
+        score = 0.3  # Base score
+
+        # Aktör bulundu (user + assistant + en az bir 3. kişi)
+        if len(actors) > 2:
+            score += 0.1
+
+        # Niyet bulundu
+        if intentions:
+            avg_confidence = sum(i.confidence for i in intentions) / len(intentions)
+            score += 0.2 * avg_confidence
+
+        # Risk değerlendirildi
+        if risks:
+            score += 0.1
+
+        # Duygu algılandı
+        if emotional_state and emotional_state.primary_emotion:
+            score += 0.1
+
+        # Yüksek güvenli niyet
+        high_confidence_intents = [i for i in intentions if i.confidence > 0.7]
+        if high_confidence_intents:
+            score += 0.1
+
+        return min(1.0, score)
