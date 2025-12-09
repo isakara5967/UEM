@@ -70,6 +70,8 @@ class ConstructionSelectorConfig:
         min_score_threshold: Minimum skor eşiği
         max_selections_per_act: Act başına maksimum seçim
         prefer_high_confidence: Yüksek güvenli construction'ları tercih et
+        mvcs_boost: MVCS construction'ları için bonus skor
+        prefer_mvcs: MVCS construction'ları önceliklendir
     """
     dialogue_act_weight: float = 0.40
     tone_weight: float = 0.25
@@ -78,6 +80,8 @@ class ConstructionSelectorConfig:
     min_score_threshold: float = 0.3
     max_selections_per_act: int = 3
     prefer_high_confidence: bool = True
+    mvcs_boost: float = 0.15
+    prefer_mvcs: bool = True
 
 
 class ConstructionSelector:
@@ -118,6 +122,9 @@ class ConstructionSelector:
 
         # Tone mapping
         self._tone_map = self._build_tone_map()
+
+        # Intent → MVCS Category mapping
+        self._intent_mvcs_map = self._build_intent_mvcs_map()
 
     def select(
         self,
@@ -227,12 +234,29 @@ class ConstructionSelector:
         if self.config.prefer_high_confidence and confidence_score > 0.7:
             reasons.append("High confidence")
 
+        # 5. MVCS bonus
+        mvcs_bonus = 0.0
+        if self.config.prefer_mvcs and construction.extra_data.get("is_mvcs"):
+            mvcs_bonus = self.config.mvcs_boost
+            reasons.append("MVCS construction (priority)")
+
+            # Intent context'e göre ekstra bonus (context'ten gelen intent)
+            if context:
+                intent = context.get("intent")
+                if intent:
+                    mvcs_category = construction.extra_data.get("mvcs_category")
+                    category_match = self._match_intent_to_mvcs_category(intent, mvcs_category)
+                    if category_match:
+                        mvcs_bonus += 0.1
+                        reasons.append(f"MVCS category match: {mvcs_category}")
+
         # Toplam skor hesapla
         total_score = (
             act_score * self.config.dialogue_act_weight +
             tone_score * self.config.tone_weight +
             constraint_score * self.config.constraint_weight +
-            confidence_score * self.config.confidence_weight
+            confidence_score * self.config.confidence_weight +
+            mvcs_bonus
         )
 
         return ConstructionScore(
@@ -419,3 +443,51 @@ class ConstructionSelector:
             return result.selected[0]
 
         return None
+
+    def _build_intent_mvcs_map(self) -> Dict[str, str]:
+        """
+        Intent → MVCS Category eşleştirmesi.
+
+        Returns:
+            Eşleştirme sözlüğü
+        """
+        return {
+            # Direkt eşleşmeler
+            "greet": "greet",
+            "ask_wellbeing": "ask_wellbeing",
+            "ask_identity": "self_intro",
+            "express_negative_emotion": "empathize_basic",
+            "express_positive_emotion": "ask_wellbeing",  # Positive response
+            "request_help": "clarify_request",
+            # Yakın eşleşmeler
+            "help": "simple_inform",
+            "inform": "simple_inform",
+            "ask": "clarify_request",
+            "complain": "empathize_basic",
+            "express_emotion": "empathize_basic",
+            "communicate": "simple_inform",
+        }
+
+    def _match_intent_to_mvcs_category(
+        self,
+        intent: str,
+        mvcs_category: Optional[str]
+    ) -> bool:
+        """
+        Intent'in MVCS kategorisiyle eşleşip eşleşmediğini kontrol et.
+
+        Args:
+            intent: Kullanıcı intent'i
+            mvcs_category: MVCS kategorisi
+
+        Returns:
+            Eşleşme varsa True
+        """
+        if not intent or not mvcs_category:
+            return False
+
+        expected_category = self._intent_mvcs_map.get(intent)
+        if expected_category and expected_category == mvcs_category:
+            return True
+
+        return False

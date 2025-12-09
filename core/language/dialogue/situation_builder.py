@@ -238,13 +238,21 @@ class SituationBuilder:
         message_normalized = normalize_turkish(message)
 
         # Kullanıcı niyetleri (basit heuristik) - normalized patterns
+        # Öncelik sırası önemli: daha spesifik pattern'ler önce
         intent_patterns = {
-            "help": ["yardim", "yardim et", "nasil", "ne yapmali"],
+            # Spesifik intent'ler (öncelikli)
+            "ask_wellbeing": ["nasilsin", "nasil hissediyorsun", "iyi misin", "nasil gidiyor", "kendin nasilsin"],
+            "ask_identity": ["sen kimsin", "kimsiniz", "kimsin", "adin ne", "adiniz ne", "nesin", "ne yapiyorsun"],
+            "express_negative_emotion": ["kotu hissediyorum", "cok kotuyum", "uzgunum", "mutsuzum", "kotu", "berbat", "moralim bozuk", "keyfim yok"],
+            "express_positive_emotion": ["iyiyim", "cok iyiyim", "harikayim", "mutluyum", "super", "muhtesem"],
+            "request_help": ["yardim et", "yardimci ol", "yardim eder misin", "yardimina ihtiyacim var", "bana yardim"],
+            # Genel intent'ler
+            "help": ["yardim", "nasil yapilir", "ne yapmali", "nasil yaparim"],
             "inform": ["bilgi", "ogrenmek", "nedir", "ne demek"],
             "ask": ["?", "mi ", "mi ", "mu ", "mu ", "soru"],
-            "complain": ["sikayet", "problem", "sorun", "kotu"],
+            "complain": ["sikayet", "problem", "sorun"],
             "request": ["ister", "istiyorum", "lutfen", "rica"],
-            "greet": ["merhaba", "selam", "gunaydin", "iyi aksam"],
+            "greet": ["merhaba", "selam", "gunaydin", "iyi aksam", "iyi gunler"],
             "thank": ["tesekkur", "sagol", "eyvallah"],
             "express_emotion": ["mutlu", "uzgun", "kizgin", "endise", "korku"]
         }
