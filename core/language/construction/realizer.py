@@ -127,7 +127,30 @@ class ConstructionRealizer:
             )
 
         # 2. Template'i doldur
-        text, filled = self._fill_template(construction, slot_values)
+        text, filled, unfilled_required = self._fill_template(construction, slot_values)
+
+        # Zorunlu slot doldurulamadıysa başarısız say
+        if unfilled_required:
+            all_missing = list(set(missing + unfilled_required))
+            return RealizationResult(
+                success=False,
+                text="",
+                construction_id=construction.id,
+                filled_slots=filled,
+                missing_slots=all_missing,
+                errors=errors + [f"Required slot not filled: {s}" for s in unfilled_required]
+            )
+
+        # Boş metin varsa başarısız say
+        if not text.strip():
+            return RealizationResult(
+                success=False,
+                text="",
+                construction_id=construction.id,
+                filled_slots=filled,
+                missing_slots=missing,
+                errors=errors + ["Empty text after template filling"]
+            )
 
         # 3. Morfoloji uygula
         if self.config.apply_morphology:
@@ -187,7 +210,7 @@ class ConstructionRealizer:
         self,
         construction: Construction,
         slot_values: Dict[str, str]
-    ) -> Tuple[str, Dict[str, str]]:
+    ) -> Tuple[str, Dict[str, str], List[str]]:
         """
         Template'i slot değerleriyle doldur.
 
@@ -196,10 +219,11 @@ class ConstructionRealizer:
             slot_values: Slot değerleri
 
         Returns:
-            Tuple[filled_text, filled_slots]
+            Tuple[filled_text, filled_slots, unfilled_required]
         """
         template = construction.form.template
         filled_slots = {}
+        unfilled_required = []
 
         for slot_name, slot in construction.form.slots.items():
             value = slot_values.get(slot_name)
@@ -208,13 +232,23 @@ class ConstructionRealizer:
             if not value and self.config.use_defaults:
                 value = slot.default
 
+            pattern = f"{{{slot_name}}}"
+
             if value:
                 # {slot_name} formatını değiştir
-                pattern = f"{{{slot_name}}}"
                 template = template.replace(pattern, value)
                 filled_slots[slot_name] = value
+            else:
+                # Slot doldurulamadı
+                if slot.required:
+                    unfilled_required.append(slot_name)
+                # Placeholder'ı temizle (boş string ile değiştir)
+                template = template.replace(pattern, "")
 
-        return template, filled_slots
+        # Fazla boşlukları temizle
+        template = " ".join(template.split())
+
+        return template, filled_slots, unfilled_required
 
     def _apply_morphology(
         self,

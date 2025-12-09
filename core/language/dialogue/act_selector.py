@@ -189,7 +189,14 @@ class DialogueActSelector:
 
         # Fallback: hiç act seçilmediyse
         if not primary:
-            primary = [DialogueAct.ACKNOWLEDGE]
+            # Intent'e göre fallback
+            has_greet_intent = any(
+                i.goal == "greet" for i in situation.intentions
+            )
+            if has_greet_intent:
+                primary = [DialogueAct.GREET]
+            else:
+                primary = [DialogueAct.ACKNOWLEDGE]
             confidence = 0.3
 
         return ActSelectionResult(
@@ -543,7 +550,7 @@ class DialogueActSelector:
             "ask": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
             "complain": [DialogueAct.EMPATHIZE, DialogueAct.ACKNOWLEDGE, DialogueAct.APOLOGIZE],
             "request": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM, DialogueAct.SUGGEST],
-            "greet": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM],
+            "greet": [DialogueAct.GREET, DialogueAct.ACKNOWLEDGE],
             "thank": [DialogueAct.ACKNOWLEDGE, DialogueAct.THANK],
             "express_emotion": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],
             "communicate": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM]

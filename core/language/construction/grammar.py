@@ -466,6 +466,22 @@ class ConstructionGrammar:
             extra_data={"tone": "neutral"}
         ))
 
+        # GREET - Selamlama
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.DEEP,
+            form=ConstructionForm(
+                template="selam ver",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="greet",
+                effects=["user_greeted"]
+            ),
+            source="human",
+            extra_data={"tone": "friendly"}
+        ))
+
         return constructions
 
     def _create_middle_constructions(self) -> List[Construction]:
@@ -822,6 +838,52 @@ class ConstructionGrammar:
             ),
             source="human",
             extra_data={"tone": "supportive"}
+        ))
+
+        # Selamlama cümlesi - basit
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Merhaba!",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="greet"
+            ),
+            source="human",
+            extra_data={"tone": "friendly"}
+        ))
+
+        # Selamlama cümlesi - samimi
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Selam, nasılsın?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="greet"
+            ),
+            source="human",
+            extra_data={"tone": "friendly"}
+        ))
+
+        # Selamlama cümlesi - yardım teklifi
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Merhaba! Sana nasıl yardımcı olabilirim?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="greet",
+                effects=["help_offered"]
+            ),
+            source="human",
+            extra_data={"tone": "helpful"}
         ))
 
         return constructions

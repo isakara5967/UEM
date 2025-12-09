@@ -58,6 +58,7 @@ class DialogueAct(str, Enum):
     ACKNOWLEDGE = "acknowledge" # Kabul et, anladığını göster
     APOLOGIZE = "apologize"     # Özür dile
     THANK = "thank"             # Teşekkür et
+    GREET = "greet"             # Selamla, karşıla
 
 
 class ToneType(str, Enum):
