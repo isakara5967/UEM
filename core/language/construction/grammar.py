@@ -24,6 +24,7 @@ from .types import (
     generate_construction_id,
     generate_slot_id,
 )
+from .mvcs import MVCSLoader, MVCSCategory
 
 
 @dataclass
@@ -273,30 +274,96 @@ class ConstructionGrammar:
         """
         Varsayılan Türkçe construction'ları yükle.
 
+        MVCS (Minimum Viable Construction Set) öncelikli yükleme:
+        1. MVCS construction'ları (cold start için)
+        2. DEEP katman construction'ları
+        3. MIDDLE katman construction'ları
+        4. SURFACE katman construction'ları (MVCS hariç)
+
         Returns:
             int: Yüklenen construction sayısı
         """
         count = 0
 
-        # DEEP Level Constructions
+        # 1. MVCS Construction'ları (Cold Start için kritik)
+        mvcs_loader = MVCSLoader()
+        mvcs_constructions = mvcs_loader.load_all()
+        for construction in mvcs_constructions:
+            if self.add_construction(construction):
+                count += 1
+
+        # 2. DEEP Level Constructions
         deep_constructions = self._create_deep_constructions()
         for construction in deep_constructions:
             if self.add_construction(construction):
                 count += 1
 
-        # MIDDLE Level Constructions
+        # 3. MIDDLE Level Constructions
         middle_constructions = self._create_middle_constructions()
         for construction in middle_constructions:
             if self.add_construction(construction):
                 count += 1
 
-        # SURFACE Level Constructions
+        # 4. SURFACE Level Constructions (MVCS dışındakiler)
         surface_constructions = self._create_surface_constructions()
         for construction in surface_constructions:
-            if self.add_construction(construction):
-                count += 1
+            # MVCS tarafından zaten yüklenenleri atla
+            if not self._is_mvcs_duplicate(construction):
+                if self.add_construction(construction):
+                    count += 1
 
         return count
+
+    def _is_mvcs_duplicate(self, construction: Construction) -> bool:
+        """
+        Construction'ın MVCS tarafından zaten yüklenmiş olup olmadığını kontrol et.
+
+        Args:
+            construction: Kontrol edilecek construction
+
+        Returns:
+            True ise MVCS duplicate
+        """
+        # Template'e göre kontrol
+        template = construction.form.template
+
+        # Mevcut greet construction'larını kontrol et
+        existing = self.get_by_dialogue_act(construction.meaning.dialogue_act)
+        for existing_c in existing:
+            if existing_c.form.template == template:
+                return True
+            # MVCS kaynaklı mı?
+            if existing_c.extra_data.get("is_mvcs"):
+                if existing_c.meaning.dialogue_act == construction.meaning.dialogue_act:
+                    # Aynı dialogue_act için benzer template varsa duplicate
+                    if self._templates_similar(existing_c.form.template, template):
+                        return True
+        return False
+
+    def _templates_similar(self, template1: str, template2: str) -> bool:
+        """
+        İki template'in benzer olup olmadığını kontrol et.
+
+        Args:
+            template1: İlk template
+            template2: İkinci template
+
+        Returns:
+            Benzer ise True
+        """
+        # Basit karşılaştırma: küçük harfe çevir ve karşılaştır
+        t1 = template1.lower().strip()
+        t2 = template2.lower().strip()
+
+        # Tam eşleşme
+        if t1 == t2:
+            return True
+
+        # Biri diğerini içeriyor
+        if t1 in t2 or t2 in t1:
+            return True
+
+        return False
 
     def _create_deep_constructions(self) -> List[Construction]:
         """DEEP katman construction'larını oluştur."""
