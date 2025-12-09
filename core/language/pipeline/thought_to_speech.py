@@ -445,21 +445,28 @@ class ThoughtToSpeechPipeline:
         if not constructions:
             return ""
 
+        # SURFACE level construction'lari tercih et (dogrudan cikti icin)
+        from ..construction.types import ConstructionLevel
+        surface_constructions = [
+            c for c in constructions
+            if c.level == ConstructionLevel.SURFACE
+        ]
+
+        # SURFACE varsa onlari kullan, yoksa hepsini kullan
+        target_constructions = surface_constructions if surface_constructions else constructions
+
         # Slot values hazirla
         slot_values = self._prepare_slot_values(plan)
 
-        # Tek construction
-        if len(constructions) == 1:
+        # Tek construction (en yuksek skorlu)
+        if len(target_constructions) >= 1:
+            # Sadece en uygun construction'i kullan
             result = self.construction_realizer.realize(
-                constructions[0], slot_values
+                target_constructions[0], slot_values
             )
             return result.text if result.success else ""
 
-        # Birden fazla construction
-        result = self.construction_realizer.realize_multiple(
-            constructions, slot_values, separator=" "
-        )
-        return result.text if result.success else ""
+        return ""
 
     def _prepare_slot_values(self, plan: MessagePlan) -> Dict[str, str]:
         """
