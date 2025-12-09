@@ -96,6 +96,31 @@ class LearningOutcome:
     timestamp: datetime = field(default_factory=datetime.now)
 
 
+@dataclass
+class Rule:
+    """
+    Genellestirilmis kural - pattern'lerden cikarilmis template.
+
+    Ornek:
+        template: "Merhaba {name}, nasilsin?"
+        slots: ["name"]
+        source_patterns: ["pat_abc123", "pat_def456"]
+    """
+    id: str
+    pattern_type: PatternType
+    template: str                    # "Merhaba {name}" gibi
+    slots: List[str]                 # ["name"]
+    source_patterns: List[str]       # Bu kural hangi pattern'lerden cikti
+    confidence: float                # 0.0 - 1.0
+    usage_count: int = 0
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self):
+        """Validate confidence range."""
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {self.confidence}")
+
+
 def generate_feedback_id() -> str:
     """Generate unique feedback ID."""
     return f"fb_{uuid.uuid4().hex[:12]}"
@@ -104,3 +129,8 @@ def generate_feedback_id() -> str:
 def generate_pattern_id() -> str:
     """Generate unique pattern ID."""
     return f"pat_{uuid.uuid4().hex[:12]}"
+
+
+def generate_rule_id() -> str:
+    """Generate unique rule ID."""
+    return f"rule_{uuid.uuid4().hex[:12]}"

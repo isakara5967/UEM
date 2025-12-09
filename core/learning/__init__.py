@@ -26,8 +26,10 @@ from .types import (
     Feedback,
     Pattern,
     LearningOutcome,
+    Rule,
     generate_feedback_id,
     generate_pattern_id,
+    generate_rule_id,
 )
 
 from .feedback import FeedbackCollector
@@ -46,6 +48,8 @@ from .adaptation import (
     BehaviorAdapter,
 )
 
+from .generalization import RuleExtractor
+
 from .processor import LearningProcessor
 
 
@@ -57,17 +61,20 @@ __all__ = [
     "Feedback",
     "Pattern",
     "LearningOutcome",
+    "Rule",
     "RewardConfig",
     "AdaptationConfig",
     "AdaptationRecord",
     # Utility functions
     "generate_feedback_id",
     "generate_pattern_id",
+    "generate_rule_id",
     # Classes
     "FeedbackCollector",
     "PatternStorage",
     "RewardCalculator",
     "Reinforcer",
     "BehaviorAdapter",
+    "RuleExtractor",
     "LearningProcessor",
 ]

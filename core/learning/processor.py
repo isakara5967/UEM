@@ -20,12 +20,14 @@ from .types import (
     LearningOutcome,
     Pattern,
     PatternType,
+    Rule,
     generate_feedback_id,
 )
 from .feedback import FeedbackCollector
 from .patterns import PatternStorage
 from .reinforcement import Reinforcer, RewardCalculator
 from .adaptation import BehaviorAdapter
+from .generalization import RuleExtractor
 
 # Conditional imports
 if TYPE_CHECKING:
@@ -74,6 +76,12 @@ class LearningProcessor:
         self.adapter = BehaviorAdapter(
             pattern_storage=self.pattern_storage,
             feedback_collector=self.feedback_collector
+        )
+
+        # Rule extractor for generalization
+        self.rule_extractor = RuleExtractor(
+            pattern_storage=self.pattern_storage,
+            encoder=self.encoder
         )
 
         # Tracking
@@ -238,6 +246,58 @@ class LearningProcessor:
         """
         return self.reinforcer.reinforce(pattern_id, feedback)
 
+    def extract_rules(
+        self,
+        min_patterns: int = 3,
+        similarity_threshold: float = 0.8
+    ) -> List[Rule]:
+        """
+        Pattern'lerden kurallari cikar.
+
+        Args:
+            min_patterns: Minimum pattern sayisi
+            similarity_threshold: Benzerlik esigi
+
+        Returns:
+            Cikarilan kurallar listesi
+        """
+        return self.rule_extractor.extract_rules(
+            min_patterns=min_patterns,
+            similarity_threshold=similarity_threshold
+        )
+
+    def generate_from_rule(self, context: str) -> Optional[str]:
+        """
+        Kurala gore cevap uret.
+
+        Args:
+            context: Baglam
+
+        Returns:
+            Uretilen cevap veya None
+        """
+        # Try to find a matching rule
+        result = self.rule_extractor.find_matching_rule(context)
+        if result:
+            rule, slot_values = result
+            return self.rule_extractor.apply_rule(rule, slot_values)
+
+        return None
+
+    def get_rules(self, pattern_type: Optional[PatternType] = None) -> List[Rule]:
+        """
+        Kurallari getir.
+
+        Args:
+            pattern_type: Filtrelenecek tur (opsiyonel)
+
+        Returns:
+            Kural listesi
+        """
+        if pattern_type:
+            return self.rule_extractor.get_rules_by_type(pattern_type)
+        return self.rule_extractor.get_all_rules()
+
     def stats(self) -> Dict[str, Any]:
         """
         Tum ogrenme istatistiklerini getir.
@@ -250,6 +310,7 @@ class LearningProcessor:
             "patterns": self.pattern_storage.stats(),
             "reinforcement": self.reinforcer.stats(),
             "adaptation": self.adapter.stats(),
+            "rules": self.rule_extractor.stats(),
             "learning_rate": self.get_learning_rate(),
             "improvement": self.get_improvement(),
             "total_interactions": len(self._interactions)
@@ -267,6 +328,7 @@ class LearningProcessor:
             "patterns": self.pattern_storage.clear(),
             "reinforcement": self.reinforcer.clear_history(),
             "adaptation": self.adapter.clear(),
+            "rules": self.rule_extractor.clear(),
             "interactions": self._clear_interactions()
         }
 
