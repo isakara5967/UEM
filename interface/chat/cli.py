@@ -26,6 +26,7 @@ try:
         ChatResponse,
         MockLLMAdapter,
     )
+    from core.language.conversation import ContextManager
     UEM_AVAILABLE = True
 except ImportError:
     UEM_AVAILABLE = False
@@ -95,6 +96,12 @@ class CLIChat:
         self._running = False
         self._session_id: Optional[str] = None
 
+        # Context Manager (Faz 5)
+        self._context_manager: Optional[ContextManager] = None
+        if UEM_AVAILABLE:
+            self._context_manager = ContextManager()
+            logger.info("ContextManager initialized for episode logging")
+
         # Faz 5 - Episode Logging
         self._episode_store: Optional[Any] = None
         self._episode_logger: Optional[Any] = None
@@ -126,6 +133,11 @@ class CLIChat:
             if hasattr(self.agent, '_pipeline') and self.agent._pipeline:
                 self.agent._pipeline.episode_logger = self._episode_logger
                 logger.info(f"Episode logger injected into pipeline (session={self._session_id})")
+
+        # Inject ContextManager into pipeline
+        if self._context_manager and hasattr(self.agent, '_pipeline') and self.agent._pipeline:
+            self.agent._pipeline.context_manager = self._context_manager
+            logger.info("ContextManager injected into pipeline")
 
         while self._running:
             user_input = self._get_input()
@@ -638,7 +650,9 @@ def main():
     try:
         # Create config with pipeline option
         from core.language import ChatConfig
-        config = ChatConfig(use_pipeline=args.pipeline)
+        # Enable pipeline if requested OR if episode logging is available (required for context tracking)
+        use_pipeline = args.pipeline or EPISODE_LOGGING_AVAILABLE
+        config = ChatConfig(use_pipeline=use_pipeline)
 
         # Create agent
         if args.mock and UEM_AVAILABLE:
