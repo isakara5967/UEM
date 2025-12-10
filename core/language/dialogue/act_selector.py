@@ -302,8 +302,9 @@ class DialogueActSelector:
                 matching_acts = self._intent_act_map[goal]
                 if act in matching_acts:
                     # Primary act (first in list) gets higher boost
+                    # Hedefli B: Primary act için daha güçlü boost (0.9 → 1.1)
                     if matching_acts[0] == act:
-                        boost = intention.confidence * 0.9
+                        boost = intention.confidence * 1.1
                     else:
                         boost = intention.confidence * 0.7
                     score += boost

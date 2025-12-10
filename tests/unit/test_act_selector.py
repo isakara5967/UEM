@@ -163,7 +163,8 @@ class TestSituationBasedSelection:
         """Test greeting situation selects appropriate acts."""
         result = selector.select(greeting_situation)
         # Greeting with "?" also triggers ask intent, so INFORM/EXPLAIN may score higher
-        expected_acts = {DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM, DialogueAct.EXPLAIN}
+        # Hedefli B: RESPOND_WELLBEING eklendi, GREET compound intent'te öncelikli
+        expected_acts = {DialogueAct.GREET, DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.RESPOND_WELLBEING}
         assert any(act in expected_acts for act in result.primary_acts)
 
     def test_select_help_request_situation(self, selector, help_situation):
@@ -207,7 +208,8 @@ class TestSituationBasedSelection:
     def test_select_positive_emotion(self, selector, positive_situation):
         """Test positive emotion selects ACKNOWLEDGE or ENCOURAGE."""
         result = selector.select(positive_situation)
-        positive_acts = {DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE}
+        # Hedefli B: ACKNOWLEDGE_POSITIVE eklendi
+        positive_acts = {DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE, DialogueAct.ACKNOWLEDGE_POSITIVE}
         assert any(act in positive_acts for act in result.primary_acts)
 
     def test_select_negative_emotion(self, selector, emotional_distress_situation):
