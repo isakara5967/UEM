@@ -136,8 +136,8 @@ class TestLoadAll:
             if cat:
                 categories_found.add(cat)
 
-        # Tum 7 kategori olmali
-        assert len(categories_found) == 7
+        # Tum 11 kategori olmali (7 orijinal + 4 Hedefli B)
+        assert len(categories_found) == 11
 
     def test_load_all_caching(self, loader):
         """load_all caching calisiyor mu?"""
@@ -298,7 +298,7 @@ class TestCountMethods:
     def test_get_category_count(self, loader):
         """get_category_count testi."""
         counts = loader.get_category_count()
-        assert len(counts) == 7  # 7 kategori
+        assert len(counts) == 11  # 11 kategori (7 orijinal + 4 Hedefli B)
         assert all(count >= 2 for count in counts.values())
 
     def test_get_total_count(self, loader):

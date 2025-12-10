@@ -47,6 +47,11 @@ class MVCSCategory(str, Enum):
     EMPATHIZE_BASIC = "empathize_basic"
     CLARIFY_REQUEST = "clarify_request"
     SAFE_REFUSAL = "safe_refusal"
+    # Hedefli B - Yeni kategoriler
+    RESPOND_WELLBEING = "respond_wellbeing"
+    RECEIVE_THANKS = "receive_thanks"
+    LIGHT_CHITCHAT = "light_chitchat"
+    ACKNOWLEDGE_POSITIVE = "acknowledge_positive"
 
 
 @dataclass
@@ -129,6 +134,19 @@ class MVCSLoader:
         # 7. SAFE_REFUSAL - Guvenli reddetme
         constructions.extend(self._create_refusal_constructions())
 
+        # Hedefli B - Yeni kategoriler
+        # 8. RESPOND_WELLBEING - Nasılsın sorusuna yanıt
+        constructions.extend(self._create_respond_wellbeing_constructions())
+
+        # 9. RECEIVE_THANKS - Teşekkür alındığında
+        constructions.extend(self._create_receive_thanks_constructions())
+
+        # 10. LIGHT_CHITCHAT - Hafif sohbet
+        constructions.extend(self._create_light_chitchat_constructions())
+
+        # 11. ACKNOWLEDGE_POSITIVE - Pozitif duyguya yanıt
+        constructions.extend(self._create_acknowledge_positive_constructions())
+
         self._all_constructions = constructions
         logger.info(f"MVCS loaded: {len(constructions)} constructions")
 
@@ -162,6 +180,15 @@ class MVCSLoader:
             constructions = self._create_clarify_constructions()
         elif category == MVCSCategory.SAFE_REFUSAL:
             constructions = self._create_refusal_constructions()
+        # Hedefli B - Yeni kategoriler
+        elif category == MVCSCategory.RESPOND_WELLBEING:
+            constructions = self._create_respond_wellbeing_constructions()
+        elif category == MVCSCategory.RECEIVE_THANKS:
+            constructions = self._create_receive_thanks_constructions()
+        elif category == MVCSCategory.LIGHT_CHITCHAT:
+            constructions = self._create_light_chitchat_constructions()
+        elif category == MVCSCategory.ACKNOWLEDGE_POSITIVE:
+            constructions = self._create_acknowledge_positive_constructions()
         else:
             constructions = []
 
@@ -897,6 +924,310 @@ class MVCSLoader:
                 "values_alignment": ["transparency"],
             }
         ))
+
+        return constructions
+
+    def _create_respond_wellbeing_constructions(self) -> List[Construction]:
+        """RESPOND_WELLBEING - Nasılsın sorusuna yanıt construction'ları oluştur."""
+        constructions = []
+
+        # 1. İyi + teşekkür + geri sorma
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Iyiyim, tesekkur ederim! Siz nasilsiniz?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="respond_wellbeing",
+                effects=["wellbeing_shared", "reciprocal_interest_shown"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
+                "mvcs_name": "wellbeing_good_reciprocal",
+                "is_mvcs": True,
+                "tone": "friendly",
+                "formality": 0.5,
+            }
+        ))
+
+        # 2. İyi + yardım teklifi
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Tesekkurler, ben de iyiyim. Size nasil yardimci olabilirim?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="respond_wellbeing",
+                effects=["wellbeing_shared", "help_offered"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
+                "mvcs_name": "wellbeing_good_help",
+                "is_mvcs": True,
+                "tone": "helpful",
+                "formality": 0.5,
+            }
+        ))
+
+        # 3. Fena değil + teşekkür
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Fena degilim, sordugunuz icin tesekkurler.",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="respond_wellbeing",
+                    effects=["wellbeing_shared"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
+                    "mvcs_name": "wellbeing_okay",
+                    "is_mvcs": True,
+                    "tone": "casual",
+                    "formality": 0.3,
+                }
+            ))
+
+        return constructions
+
+    def _create_receive_thanks_constructions(self) -> List[Construction]:
+        """RECEIVE_THANKS - Teşekkür alındığında construction'ları oluştur."""
+        constructions = []
+
+        # 1. Rica ederim (basit)
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Rica ederim!",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="receive_thanks",
+                effects=["thanks_acknowledged"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
+                "mvcs_name": "thanks_simple",
+                "is_mvcs": True,
+                "tone": "friendly",
+                "formality": 0.4,
+            }
+        ))
+
+        # 2. Memnun oldum
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Ne demek, memnun oldum.",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="receive_thanks",
+                effects=["thanks_acknowledged", "pleasure_expressed"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
+                "mvcs_name": "thanks_pleasure",
+                "is_mvcs": True,
+                "tone": "warm",
+                "formality": 0.5,
+            }
+        ))
+
+        # 3. Rica ederim + yardım teklifi
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Rica ederim, baska nasil yardimci olabilirim?",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="receive_thanks",
+                    effects=["thanks_acknowledged", "continued_help_offered"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
+                    "mvcs_name": "thanks_continue_help",
+                    "is_mvcs": True,
+                    "tone": "helpful",
+                    "formality": 0.5,
+                }
+            ))
+
+        return constructions
+
+    def _create_light_chitchat_constructions(self) -> List[Construction]:
+        """LIGHT_CHITCHAT - Hafif sohbet construction'ları oluştur."""
+        constructions = []
+
+        # 1. Fena değilim + sen
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Fena degilim, sen nasilsin?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="light_chitchat",
+                effects=["chitchat_engaged", "reciprocal_question"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
+                "mvcs_name": "chitchat_casual_reciprocal",
+                "is_mvcs": True,
+                "tone": "casual",
+                "formality": 0.2,
+            }
+        ))
+
+        # 2. İyidir + neler oluyor
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Iyidir, neler oluyor?",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="light_chitchat",
+                effects=["chitchat_engaged", "interest_shown"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
+                "mvcs_name": "chitchat_whats_up",
+                "is_mvcs": True,
+                "tone": "casual",
+                "formality": 0.2,
+            }
+        ))
+
+        # 3. Buradayım + yardım
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Buradayim, hazirim. Nasil yardimci olabilirim?",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="light_chitchat",
+                    effects=["presence_confirmed", "help_offered"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
+                    "mvcs_name": "chitchat_present_ready",
+                    "is_mvcs": True,
+                    "tone": "friendly",
+                    "formality": 0.4,
+                }
+            ))
+
+        return constructions
+
+    def _create_acknowledge_positive_constructions(self) -> List[Construction]:
+        """ACKNOWLEDGE_POSITIVE - Pozitif duyguya yanıt construction'ları oluştur."""
+        constructions = []
+
+        # 1. İyi olmanıza sevindim
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Iyi olmaniza sevindim!",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="acknowledge_positive",
+                effects=["positive_acknowledged", "joy_shared"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
+                "mvcs_name": "positive_glad",
+                "is_mvcs": True,
+                "tone": "warm",
+                "formality": 0.5,
+            }
+        ))
+
+        # 2. Güzel + duymak iyi geldi
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Guzel, bunu duymak iyi geldi.",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="acknowledge_positive",
+                effects=["positive_acknowledged"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
+                "mvcs_name": "positive_nice_to_hear",
+                "is_mvcs": True,
+                "tone": "friendly",
+                "formality": 0.4,
+            }
+        ))
+
+        # 3. Ne güzel + mutlu oldum
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Ne guzel, mutlu oldum.",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="acknowledge_positive",
+                    effects=["positive_acknowledged", "happiness_expressed"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
+                    "mvcs_name": "positive_happy",
+                    "is_mvcs": True,
+                    "tone": "enthusiastic",
+                    "formality": 0.3,
+                }
+            ))
 
         return constructions
 

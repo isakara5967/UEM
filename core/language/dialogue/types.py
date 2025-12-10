@@ -60,6 +60,12 @@ class DialogueAct(str, Enum):
     THANK = "thank"             # Teşekkür et
     GREET = "greet"             # Selamla, karşıla
 
+    # Hedefli B - Specifik yanıt tipleri
+    RESPOND_WELLBEING = "respond_wellbeing"     # Nasılsın sorusuna yanıt
+    RECEIVE_THANKS = "receive_thanks"           # Teşekkür alındığında
+    LIGHT_CHITCHAT = "light_chitchat"           # Hafif sohbet
+    ACKNOWLEDGE_POSITIVE = "acknowledge_positive" # Pozitif duyguya yanıt
+
 
 class ToneType(str, Enum):
     """

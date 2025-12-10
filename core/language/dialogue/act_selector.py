@@ -610,20 +610,20 @@ class DialogueActSelector:
             # Yeni IntentCategory enum değerleri
             "greeting": [DialogueAct.GREET, DialogueAct.ACKNOWLEDGE],
             "farewell": [DialogueAct.ACKNOWLEDGE, DialogueAct.GREET],
-            "ask_wellbeing": [DialogueAct.INFORM, DialogueAct.ACKNOWLEDGE],
+            "ask_wellbeing": [DialogueAct.RESPOND_WELLBEING, DialogueAct.INFORM],  # Hedefli B: kullanıcı bize sorduğunda
             "ask_identity": [DialogueAct.INFORM],  # MVCS: SELF_INTRO
-            "express_positive": [DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],
+            "express_positive": [DialogueAct.ACKNOWLEDGE_POSITIVE, DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],  # Hedefli B
             "express_negative": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],
             "request_help": [DialogueAct.CLARIFY, DialogueAct.ADVISE, DialogueAct.SUGGEST],
             "request_info": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
-            "thank": [DialogueAct.ACKNOWLEDGE, DialogueAct.THANK],
+            "thank": [DialogueAct.RECEIVE_THANKS, DialogueAct.ACKNOWLEDGE],  # Hedefli B: teşekkür alındığında
             "apologize": [DialogueAct.ACKNOWLEDGE, DialogueAct.COMFORT],
             "agree": [DialogueAct.ACKNOWLEDGE, DialogueAct.CONFIRM],
             "disagree": [DialogueAct.ACKNOWLEDGE, DialogueAct.CLARIFY],
             "clarify": [DialogueAct.CLARIFY, DialogueAct.EXPLAIN],
             "complain": [DialogueAct.EMPATHIZE, DialogueAct.ACKNOWLEDGE, DialogueAct.APOLOGIZE],
             "meta_question": [DialogueAct.EXPLAIN, DialogueAct.INFORM],
-            "smalltalk": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM],
+            "smalltalk": [DialogueAct.LIGHT_CHITCHAT, DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM],  # Hedefli B
             "unknown": [DialogueAct.ACKNOWLEDGE, DialogueAct.CLARIFY],
 
             # Backward compatibility (eski intent'ler)
