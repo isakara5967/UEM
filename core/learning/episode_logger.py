@@ -138,9 +138,10 @@ class EpisodeLogger:
         self.current_episode.context_last_user_intent = context.last_user_intent
         self.current_episode.context_last_assistant_act = context.last_assistant_act
         self.current_episode.context_sentiment = context.user_sentiment
-        self.current_episode.context_sentiment_trend = context_manager.get_sentiment_trend()
+        # Use numeric sentiment_trend from context (not string from get_sentiment_trend())
+        self.current_episode.context_sentiment_trend = context.sentiment_trend
         self.current_episode.context_topic = context.current_topic
-        self.current_episode.context_is_followup = context_manager.is_followup_question()
+        self.current_episode.context_is_followup = context.is_followup
 
     def update_decision(
         self,

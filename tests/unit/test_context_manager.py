@@ -550,3 +550,106 @@ def test_special_characters(manager):
     msg = manager.add_user_message(special_text)
 
     assert msg.content == special_text
+
+
+# =========================================================================
+# Context Integration Tests (Faz 5 Episode Logging)
+# =========================================================================
+
+def test_sentiment_trend_increasing(manager):
+    """Sentiment trend - Artan duygu."""
+    # İlk nötr mesaj
+    manager.add_user_message("Merhaba")
+    assert manager.context.sentiment_trend == 0  # İlk mesaj, stable
+
+    # Pozitif mesajlar ekle
+    manager.add_user_message("Harika, çok mutluyum!")
+    manager.add_user_message("Süper, iyi gidiyor!")
+
+    # Sentiment artıyor olmalı
+    assert manager.context.sentiment_trend == 1
+
+
+def test_sentiment_trend_decreasing(manager):
+    """Sentiment trend - Azalan duygu."""
+    # İlk pozitif mesaj
+    manager.add_user_message("Harika!")
+
+    # Negatif mesajlar ekle
+    manager.add_user_message("Berbat, çok kötü")
+    manager.add_user_message("Üzgünüm, mutsuzum")
+
+    # Sentiment azalıyor olmalı
+    assert manager.context.sentiment_trend == -1
+
+
+def test_sentiment_trend_stable(manager):
+    """Sentiment trend - Sabit duygu."""
+    # Benzer nötr mesajlar
+    manager.add_user_message("Toplantı yarın")
+    manager.add_user_message("Rapor hazır")
+    manager.add_user_message("Mail gönderildi")
+
+    # Sentiment sabit olmalı
+    assert manager.context.sentiment_trend == 0
+
+
+def test_is_followup_set_on_user_message(manager):
+    """is_followup user mesajında set ediliyor mu?"""
+    # İlk mesaj - followup değil
+    manager.add_user_message("Bilgisayar nasıl çalışır?")
+    assert manager.context.is_followup is False
+
+    # Assistant yanıt verir
+    manager.add_assistant_message("İşlemci komutları yürütür...")
+
+    # Kısa followup sorusu
+    manager.add_user_message("Peki işlemci nedir?")
+    assert manager.context.is_followup is True
+
+
+def test_is_followup_reset_on_new_topic(manager):
+    """Yeni konu başladığında is_followup False olmalı."""
+    # İlk mesaj
+    manager.add_user_message("Bilgisayar nasıl çalışır?")
+    manager.add_assistant_message("İşlemci komutları yürütür...")
+    manager.add_user_message("Peki işlemci nedir?")
+    assert manager.context.is_followup is True
+
+    # Yeni konu - uzun mesaj (>10 kelime), takip sorusu değil
+    manager.add_user_message("Tamam teşekkür ederim çok yardımcı oldunuz. Şimdi farklı bir konuda soru sormak istiyorum. Bugün hava nasıl?")
+    assert manager.context.is_followup is False
+
+
+def test_context_snapshot_completeness(manager):
+    """Context snapshot tüm alanları dolduruyor mu?"""
+    # Mesajlar ekle
+    manager.add_user_message("Merhaba", IntentCategory.GREETING)
+    manager.add_assistant_message("Selam", DialogueAct.GREET)
+    manager.add_user_message("Nasılsın?", IntentCategory.ASK_WELLBEING)
+
+    context = manager.get_context()
+
+    # Tüm gerekli alanlar dolu olmalı
+    assert context.turn_count == 2
+    assert context.last_user_intent == IntentCategory.ASK_WELLBEING
+    assert context.last_assistant_act == DialogueAct.GREET
+    assert context.user_sentiment is not None
+    assert context.sentiment_trend in [-1, 0, 1]
+    assert context.is_followup is not None  # True/False doesn't matter, just not None
+
+
+def test_context_reset_clears_sentiment_tracking(manager):
+    """Reset sonrası sentiment tracking temizleniyor mu?"""
+    # Sentiment değiştir
+    manager.add_user_message("Harika, mutluyum!")
+    assert manager.context.user_sentiment > 0.0
+    assert manager._previous_sentiment > 0.0
+
+    # Reset
+    manager.reset()
+
+    # Her şey sıfırlanmalı
+    assert manager.context.user_sentiment == 0.0
+    assert manager._previous_sentiment == 0.0
+    assert manager.context.sentiment_trend == 0
