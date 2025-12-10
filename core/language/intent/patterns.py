@@ -790,11 +790,16 @@ def get_pattern_ids_for_category(category: IntentCategory) -> List[str]:
     """
     Belirli bir kategorinin tüm pattern ID'lerini döndür.
 
+    Not: Pattern ID'ler kategori bazlı index kullanır, bu yüzden
+    duplicate pattern'ler (örn. "iyi gunler" hem greeting hem farewell)
+    farklı kategorilerde farklı ID'lere sahip olur.
+
     Args:
         category: Intent kategorisi
 
     Returns:
-        Pattern ID listesi
+        Pattern ID listesi (format: "{category_value}_{index}")
     """
     patterns = get_patterns_for_category(category)
-    return [get_pattern_id(p) for p in patterns if get_pattern_id(p) is not None]
+    category_value = category.value
+    return [f"{category_value}_{idx}" for idx in range(len(patterns))]
