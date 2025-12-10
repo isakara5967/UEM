@@ -546,24 +546,40 @@ class DialogueActSelector:
         """
         Intent → Act eşleştirme tablosu.
 
+        Yeni IntentCategory enum değerlerine göre güncellenmiş.
+
         Returns:
             Eşleştirme sözlüğü
         """
         return {
-            # MVCS-aligned spesifik intent'ler
-            "ask_wellbeing": [DialogueAct.INFORM, DialogueAct.ACKNOWLEDGE],  # MVCS: ASK_WELLBEING response
-            "ask_identity": [DialogueAct.INFORM],  # MVCS: SELF_INTRO response
-            "express_negative_emotion": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],  # MVCS: EMPATHIZE_BASIC
+            # Yeni IntentCategory enum değerleri
+            "greeting": [DialogueAct.GREET, DialogueAct.ACKNOWLEDGE],
+            "farewell": [DialogueAct.ACKNOWLEDGE, DialogueAct.GREET],
+            "ask_wellbeing": [DialogueAct.INFORM, DialogueAct.ACKNOWLEDGE],
+            "ask_identity": [DialogueAct.INFORM],  # MVCS: SELF_INTRO
+            "express_positive": [DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],
+            "express_negative": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],
+            "request_help": [DialogueAct.CLARIFY, DialogueAct.ADVISE, DialogueAct.SUGGEST],
+            "request_info": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
+            "thank": [DialogueAct.ACKNOWLEDGE, DialogueAct.THANK],
+            "apologize": [DialogueAct.ACKNOWLEDGE, DialogueAct.COMFORT],
+            "agree": [DialogueAct.ACKNOWLEDGE, DialogueAct.CONFIRM],
+            "disagree": [DialogueAct.ACKNOWLEDGE, DialogueAct.CLARIFY],
+            "clarify": [DialogueAct.CLARIFY, DialogueAct.EXPLAIN],
+            "complain": [DialogueAct.EMPATHIZE, DialogueAct.ACKNOWLEDGE, DialogueAct.APOLOGIZE],
+            "meta_question": [DialogueAct.EXPLAIN, DialogueAct.INFORM],
+            "smalltalk": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM],
+            "unknown": [DialogueAct.ACKNOWLEDGE, DialogueAct.CLARIFY],
+
+            # Backward compatibility (eski intent'ler)
+            "ask_identity": [DialogueAct.INFORM],
+            "express_negative_emotion": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],
             "express_positive_emotion": [DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],
-            "request_help": [DialogueAct.CLARIFY, DialogueAct.ADVISE, DialogueAct.SUGGEST],  # MVCS: CLARIFY_REQUEST
-            # Genel intent'ler
             "help": [DialogueAct.ADVISE, DialogueAct.SUGGEST, DialogueAct.EXPLAIN],
             "inform": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
             "ask": [DialogueAct.INFORM, DialogueAct.EXPLAIN, DialogueAct.CLARIFY],
-            "complain": [DialogueAct.EMPATHIZE, DialogueAct.ACKNOWLEDGE, DialogueAct.APOLOGIZE],
             "request": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM, DialogueAct.SUGGEST],
             "greet": [DialogueAct.GREET, DialogueAct.ACKNOWLEDGE],
-            "thank": [DialogueAct.ACKNOWLEDGE, DialogueAct.THANK],
             "express_emotion": [DialogueAct.EMPATHIZE, DialogueAct.COMFORT, DialogueAct.ENCOURAGE],
             "communicate": [DialogueAct.ACKNOWLEDGE, DialogueAct.INFORM]
         }

@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 from core.utils.text import normalize_turkish
+from core.language.intent import IntentRecognizer, IntentCategory
 
 from .types import (
     SituationModel,
@@ -100,6 +101,9 @@ class SituationBuilder:
         self.perception = perception_processor
         self.memory = memory_search
         self.cognition = cognition_processor
+
+        # Intent recognizer
+        self.intent_recognizer = IntentRecognizer()
 
     def build(
         self,
@@ -227,6 +231,8 @@ class SituationBuilder:
         """
         Mesajdan niyetleri çıkar.
 
+        Yeni intent recognition sistemi kullanır (IntentRecognizer).
+
         Args:
             message: Kullanıcı mesajı
             actors: Aktör listesi
@@ -235,52 +241,63 @@ class SituationBuilder:
             List[Intention]: Niyet listesi
         """
         intentions = []
-        message_normalized = normalize_turkish(message)
 
-        # Kullanıcı niyetleri (basit heuristik) - normalized patterns
-        # Öncelik sırası önemli: daha spesifik pattern'ler önce
-        intent_patterns = {
-            # Spesifik intent'ler (öncelikli)
-            "ask_wellbeing": ["nasilsin", "nasil hissediyorsun", "iyi misin", "nasil gidiyor", "kendin nasilsin"],
-            "ask_identity": ["sen kimsin", "kimsiniz", "kimsin", "adin ne", "adiniz ne", "nesin", "ne yapiyorsun"],
-            "express_negative_emotion": ["kotu hissediyorum", "cok kotuyum", "uzgunum", "mutsuzum", "kotu", "berbat", "moralim bozuk", "keyfim yok"],
-            "express_positive_emotion": ["iyiyim", "cok iyiyim", "harikayim", "mutluyum", "super", "muhtesem"],
-            "request_help": ["yardim et", "yardimci ol", "yardim eder misin", "yardimina ihtiyacim var", "bana yardim"],
-            # Genel intent'ler
-            "help": ["yardim", "nasil yapilir", "ne yapmali", "nasil yaparim"],
-            "inform": ["bilgi", "ogrenmek", "nedir", "ne demek"],
-            "ask": ["?", "mi ", "mi ", "mu ", "mu ", "soru"],
-            "complain": ["sikayet", "problem", "sorun"],
-            "request": ["ister", "istiyorum", "lutfen", "rica"],
-            "greet": ["merhaba", "selam", "gunaydin", "iyi aksam", "iyi gunler"],
-            "thank": ["tesekkur", "sagol", "eyvallah"],
-            "express_emotion": ["mutlu", "uzgun", "kizgin", "endise", "korku"]
-        }
-
+        # User actor'ü bul
         user_actor = next((a for a in actors if a.role == "user"), None)
-        if user_actor:
-            for goal, patterns in intent_patterns.items():
-                for pattern in patterns:
-                    if pattern in message_normalized:
-                        intentions.append(Intention(
-                            id=_generate_intention_id(),
-                            actor_id=user_actor.id,
-                            goal=goal,
-                            sub_goals=[],
-                            confidence=0.7,
-                            evidence=[f"Pattern matched: '{pattern}'"]
-                        ))
-                        break
+        if not user_actor:
+            return intentions
+
+        # IntentRecognizer ile intent tanıma
+        intent_result = self.intent_recognizer.recognize(message)
+
+        # Primary intent
+        if intent_result.primary != IntentCategory.UNKNOWN:
+            intentions.append(Intention(
+                id=_generate_intention_id(),
+                actor_id=user_actor.id,
+                goal=intent_result.primary.value,
+                sub_goals=[],
+                confidence=intent_result.confidence,
+                evidence=[f"IntentRecognizer matched: {intent_result.primary.value}"]
+            ))
+
+        # Secondary intent (compound intent varsa)
+        if intent_result.secondary:
+            # Secondary için confidence biraz daha düşük
+            secondary_confidence = intent_result.confidence * 0.8
+            intentions.append(Intention(
+                id=_generate_intention_id(),
+                actor_id=user_actor.id,
+                goal=intent_result.secondary.value,
+                sub_goals=[],
+                confidence=secondary_confidence,
+                evidence=[f"IntentRecognizer matched (secondary): {intent_result.secondary.value}"]
+            ))
+
+        # Diğer eşleşmeler (eğer yer varsa)
+        remaining_slots = self.config.max_intentions - len(intentions)
+        if remaining_slots > 0 and intent_result.all_matches:
+            # İlk 2'yi zaten ekledik, kalanları ekle
+            for match in intent_result.all_matches[2:2+remaining_slots]:
+                if match.category not in [IntentCategory.UNKNOWN]:
+                    intentions.append(Intention(
+                        id=_generate_intention_id(),
+                        actor_id=user_actor.id,
+                        goal=match.category.value,
+                        sub_goals=[],
+                        confidence=match.confidence * 0.7,  # Daha düşük confidence
+                        evidence=[f"IntentRecognizer matched: {match.matched_pattern}"]
+                    ))
 
         # Eğer hiç niyet bulunamadıysa, genel bir niyet ekle
-        if not intentions and user_actor:
+        if not intentions:
             intentions.append(Intention(
                 id=_generate_intention_id(),
                 actor_id=user_actor.id,
                 goal="communicate",
                 sub_goals=[],
                 confidence=0.5,
-                evidence=["Default intention"]
+                evidence=["Default intention - no specific intent recognized"]
             ))
 
         return intentions[:self.config.max_intentions]
