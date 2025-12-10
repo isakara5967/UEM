@@ -64,6 +64,7 @@ class IntentResult:
         secondary: İkincil intent (varsa)
         confidence: Genel güven skoru (0.0-1.0)
         matched_patterns: Eşleşen tüm pattern'ler
+        matched_pattern_ids: Eşleşen pattern'lerin ID'leri (Faz 5 için)
         is_compound: Birden fazla intent var mı?
         all_matches: Tüm eşleşmeler (sıralı)
     """
@@ -71,6 +72,7 @@ class IntentResult:
     secondary: Optional[IntentCategory] = None
     confidence: float = 0.0
     matched_patterns: List[str] = field(default_factory=list)
+    matched_pattern_ids: List[str] = field(default_factory=list)
     is_compound: bool = False
     all_matches: List[IntentMatch] = field(default_factory=list)
 

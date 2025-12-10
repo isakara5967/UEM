@@ -12,7 +12,7 @@ Her intent kategorisi için:
 UEM v2 - Intent Recognition sistemi.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from .types import IntentCategory
 
 
@@ -742,3 +742,59 @@ def get_patterns_for_category(category: IntentCategory) -> List[str]:
         O kategorinin pattern'leri
     """
     return INTENT_PATTERNS.get(category, [])
+
+
+# =========================================================================
+# Pattern ID Mapping - Faz 5 Episode Logging için
+# =========================================================================
+
+def _generate_pattern_ids() -> Dict[str, str]:
+    """
+    Her pattern için deterministic ID oluştur.
+
+    Format: "{category_value}_{index}"
+    Örnek: "greeting_0", "greeting_1", "ask_wellbeing_0", etc.
+
+    Returns:
+        Dict mapping pattern text -> pattern ID
+    """
+    pattern_to_id = {}
+
+    for category, patterns in INTENT_PATTERNS.items():
+        category_value = category.value
+        for idx, pattern in enumerate(patterns):
+            pattern_id = f"{category_value}_{idx}"
+            pattern_to_id[pattern] = pattern_id
+
+    return pattern_to_id
+
+
+# Pattern ID mapping (generated once at import)
+PATTERN_TO_ID: Dict[str, str] = _generate_pattern_ids()
+
+
+def get_pattern_id(pattern: str) -> Optional[str]:
+    """
+    Pattern text'ten pattern ID'yi getir.
+
+    Args:
+        pattern: Pattern text (normalized)
+
+    Returns:
+        Pattern ID veya None
+    """
+    return PATTERN_TO_ID.get(pattern)
+
+
+def get_pattern_ids_for_category(category: IntentCategory) -> List[str]:
+    """
+    Belirli bir kategorinin tüm pattern ID'lerini döndür.
+
+    Args:
+        category: Intent kategorisi
+
+    Returns:
+        Pattern ID listesi
+    """
+    patterns = get_patterns_for_category(category)
+    return [get_pattern_id(p) for p in patterns if get_pattern_id(p) is not None]

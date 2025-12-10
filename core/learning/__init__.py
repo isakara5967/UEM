@@ -87,6 +87,18 @@ from .mdl import (
     ApproximateMDL,
 )
 
+# Faz 5 - Episode Logging System
+from .episode_types import (
+    EpisodeLog,
+    ImplicitFeedback as Faz5ImplicitFeedback,
+    ConstructionSource,
+    ConstructionLevel,
+    ApprovalStatus,
+    generate_episode_log_id,
+)
+from .episode_store import EpisodeStore, JSONLEpisodeStore
+from .episode_logger import EpisodeLogger
+
 
 __all__ = [
     # Enums
@@ -128,4 +140,14 @@ __all__ = [
     "MDLConfig",
     "MDLScore",
     "ApproximateMDL",
+    # Faz 5 - Episode Logging
+    "EpisodeLog",
+    "Faz5ImplicitFeedback",
+    "ConstructionSource",
+    "ConstructionLevel",
+    "ApprovalStatus",
+    "generate_episode_log_id",
+    "EpisodeStore",
+    "JSONLEpisodeStore",
+    "EpisodeLogger",
 ]

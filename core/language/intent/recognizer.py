@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from core.utils.text import normalize_turkish
 from .types import IntentCategory, IntentMatch, IntentResult
-from .patterns import INTENT_PATTERNS, get_pattern_weight
+from .patterns import INTENT_PATTERNS, get_pattern_weight, get_pattern_id
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,7 @@ class IntentRecognizer:
                 primary=IntentCategory.UNKNOWN,
                 confidence=0.0,
                 matched_patterns=[],
+                matched_pattern_ids=[],
                 is_compound=False
             )
 
@@ -108,6 +109,7 @@ class IntentRecognizer:
                 primary=IntentCategory.UNKNOWN,
                 confidence=0.2,  # Mesaj var ama tanınmadı
                 matched_patterns=[],
+                matched_pattern_ids=[],
                 is_compound=False
             )
 
@@ -122,6 +124,7 @@ class IntentRecognizer:
                 primary=IntentCategory.UNKNOWN,
                 confidence=0.2,
                 matched_patterns=[],
+                matched_pattern_ids=[],
                 is_compound=False
             )
 
@@ -135,7 +138,14 @@ class IntentRecognizer:
         # 7. Matched pattern'leri topla
         matched_patterns = [m.matched_pattern for m in valid_matches[:self.config.max_intents_per_message]]
 
-        # 8. Genel confidence hesapla
+        # 8. Matched pattern ID'leri topla (Faz 5 için)
+        matched_pattern_ids = []
+        for m in valid_matches[:self.config.max_intents_per_message]:
+            pattern_id = get_pattern_id(m.matched_pattern)
+            if pattern_id:
+                matched_pattern_ids.append(pattern_id)
+
+        # 9. Genel confidence hesapla
         overall_confidence = self._calculate_overall_confidence(valid_matches)
 
         return IntentResult(
@@ -143,6 +153,7 @@ class IntentRecognizer:
             secondary=secondary_match.category if secondary_match else None,
             confidence=overall_confidence,
             matched_patterns=matched_patterns,
+            matched_pattern_ids=matched_pattern_ids,
             is_compound=is_compound,
             all_matches=valid_matches[:self.config.max_intents_per_message]
         )
