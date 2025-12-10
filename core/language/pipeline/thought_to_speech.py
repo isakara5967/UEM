@@ -369,11 +369,15 @@ class ThoughtToSpeechPipeline:
             if self.episode_logger and constructions:
                 from core.learning.episode_types import ConstructionSource, ConstructionLevel
                 first_construction = constructions[0]
+                # Get category from extra_data (MVCS constructions store category there)
+                category = first_construction.extra_data.get("mvcs_category", "unknown")
+                # Get level from construction level field
+                level = first_construction.level if hasattr(first_construction, 'level') else ConstructionLevel.SURFACE
                 self.episode_logger.update_construction(
                     construction_id=first_construction.id,
-                    category=first_construction.meaning.category if hasattr(first_construction.meaning, 'category') else "unknown",
+                    category=category,
                     source=ConstructionSource.HUMAN_DEFAULT,  # MVCS constructions are human-written
-                    level=ConstructionLevel(first_construction.level.value) if hasattr(first_construction, 'level') else ConstructionLevel.SURFACE
+                    level=level
                 )
 
             # 7. Cikti uret

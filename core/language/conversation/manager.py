@@ -54,6 +54,7 @@ class ContextManager:
         """
         self.config = config or ContextConfig()
         self.context = ConversationContext()
+        self._previous_sentiment = 0.0  # Track previous sentiment for trend calculation
 
     def add_user_message(
         self,
@@ -93,6 +94,9 @@ class ContextManager:
         # Topic güncelle
         if self.config.enable_topic_tracking:
             self._update_topic(message)
+
+        # Followup check - calculate before incrementing turn_count
+        self.context.is_followup = self.is_followup_question()
 
         self.context.turn_count += 1
 
@@ -186,10 +190,23 @@ class ContextManager:
         # Sınırla
         self.context.user_sentiment = max(-1.0, min(1.0, self.context.user_sentiment))
 
+        # Sentiment trend hesapla
+        epsilon = 0.1  # Threshold for detecting change
+        if self.context.user_sentiment > self._previous_sentiment + epsilon:
+            self.context.sentiment_trend = 1  # Increasing
+        elif self.context.user_sentiment < self._previous_sentiment - epsilon:
+            self.context.sentiment_trend = -1  # Decreasing
+        else:
+            self.context.sentiment_trend = 0  # Stable
+
         logger.debug(
             f"Updated sentiment: message={message_sentiment:.2f}, "
-            f"running_avg={self.context.user_sentiment:.2f}"
+            f"running_avg={self.context.user_sentiment:.2f}, "
+            f"trend={self.context.sentiment_trend}"
         )
+
+        # Save current sentiment for next comparison
+        self._previous_sentiment = self.context.user_sentiment
 
     def _update_topic(self, message: Message) -> None:
         """
@@ -344,6 +361,7 @@ class ContextManager:
         Context'i sıfırla (yeni oturum için).
         """
         self.context = ConversationContext()
+        self._previous_sentiment = 0.0  # Reset sentiment tracking
         logger.info("Context reset - new session started")
 
     def get_recent_intents(self, n: int = 3) -> List[Optional[IntentCategory]]:

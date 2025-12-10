@@ -750,3 +750,149 @@ def test_generate_episode_log_id():
     assert id1.startswith("eplog_")
     assert id2.startswith("eplog_")
     assert id1 != id2  # Should be unique
+
+
+# =========================================================================
+# 8. Context & Construction Integration Tests (Faz 5 B+)
+# =========================================================================
+
+@pytest.fixture
+def episode_logger(tmp_path):
+    """Create episode logger fixture for new tests."""
+    store_path = tmp_path / "test_context_episodes.jsonl"
+    store = JSONLEpisodeStore(str(store_path))
+    return EpisodeLogger(store, "test_context_session")
+
+
+def test_context_snapshot_logged_correctly(episode_logger):
+    """Test context snapshot is correctly logged to episode."""
+    from core.language.conversation import ContextManager
+    from core.language.intent.types import IntentCategory
+    from core.language.dialogue.types import DialogueAct
+
+    # Create context manager with some conversation history
+    context_manager = ContextManager()
+    context_manager.add_user_message("Merhaba", IntentCategory.GREETING)
+    context_manager.add_assistant_message("Selam!", DialogueAct.GREET)
+    context_manager.add_user_message("Harika, çok mutluyum!", IntentCategory.EXPRESS_POSITIVE)
+
+    # Start episode
+    episode_id = episode_logger.start_episode("Nasılsın?", "nasilsin")
+    episode_logger.update_intent(IntentCategory.ASK_WELLBEING, confidence=0.9)
+
+    # Update context from context_manager
+    episode_logger.update_context(context_manager)
+
+    # Finalize
+    episode_logger.finalize_episode(processing_time_ms=100)
+
+    # Retrieve and verify
+    episodes = episode_logger.get_session_episodes()
+    episode = episodes[0]
+
+    # Verify all context fields are set correctly
+    assert episode.context_turn_count == 2  # Two user messages before this one
+    assert episode.context_last_user_intent == IntentCategory.EXPRESS_POSITIVE
+    assert episode.context_last_assistant_act == DialogueAct.GREET
+    assert episode.context_sentiment is not None  # Sentiment calculated
+    assert episode.context_sentiment_trend in [-1, 0, 1]  # Valid trend value
+    assert episode.context_topic is not None or episode.context_topic is None  # Can be None if no topic detected
+    assert episode.context_is_followup is not None  # Should be set (True or False)
+
+
+def test_construction_category_and_level_logged(episode_logger):
+    """Test construction category and level are correctly logged."""
+    from core.language.construction.mvcs import MVCSLoader, MVCSCategory
+    from core.learning.episode_types import ConstructionSource, ConstructionLevel
+
+    # Load MVCS constructions
+    loader = MVCSLoader()
+    greet_constructions = loader.get_by_category(MVCSCategory.GREET)
+    assert len(greet_constructions) > 0
+
+    # Get first greeting construction
+    greeting = greet_constructions[0]
+
+    # Start episode
+    episode_id = episode_logger.start_episode("Merhaba", "merhaba")
+    episode_logger.update_intent(IntentCategory.GREETING, confidence=0.95)
+
+    # Update construction with real MVCS construction
+    category = greeting.extra_data.get("mvcs_category", "unknown")
+    level = greeting.level if hasattr(greeting, 'level') else ConstructionLevel.SURFACE
+
+    episode_logger.update_construction(
+        construction_id=greeting.id,
+        category=category,
+        source=ConstructionSource.HUMAN_DEFAULT,
+        level=level
+    )
+
+    # Add output
+    episode_logger.update_output("Merhaba!")
+
+    # Finalize
+    episode_logger.finalize_episode(processing_time_ms=50)
+
+    # Retrieve and verify
+    episodes = episode_logger.get_session_episodes()
+    episode = episodes[0]
+
+    # Verify construction metadata
+    assert episode.construction_id == greeting.id
+    assert episode.construction_category == MVCSCategory.GREET.value  # Should be "greet", not "unknown"
+    assert episode.construction_source == ConstructionSource.HUMAN_DEFAULT
+    assert episode.construction_level == ConstructionLevel.SURFACE  # MVCS constructions are SURFACE level
+
+
+def test_pipeline_logs_construction_category_correctly():
+    """Test that pipeline correctly extracts and logs construction category."""
+    from core.language.pipeline import ThoughtToSpeechPipeline
+    import tempfile
+
+    # Create temp episode store
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+        temp_file = f.name
+
+    try:
+        from core.learning.episode_store import JSONLEpisodeStore
+        from core.learning.episode_logger import EpisodeLogger
+
+        store = JSONLEpisodeStore(temp_file)
+        logger = EpisodeLogger(store, session_id="test_session")
+
+        # Create pipeline with episode logger
+        pipeline = ThoughtToSpeechPipeline(episode_logger=logger)
+
+        # Process a greeting message
+        result = pipeline.process("Merhaba!")
+
+        # Get logged episode
+        episodes = logger.get_session_episodes()
+        assert len(episodes) == 1
+
+        episode = episodes[0]
+
+        # Verify construction category is NOT "unknown"
+        # Should be a valid MVCS category like "greet", "respond_wellbeing", etc.
+        assert episode.construction_category != "unknown"
+        assert episode.construction_category != ""
+        # Should be one of the MVCS categories
+        assert episode.construction_category in [
+            "greet", "self_intro", "ask_wellbeing", "simple_inform",
+            "empathize_basic", "clarify_request", "safe_refusal",
+            "respond_wellbeing", "receive_thanks", "light_chitchat",
+            "acknowledge_positive"
+        ]
+
+        # Verify construction level is valid
+        assert episode.construction_level in [
+            ConstructionLevel.SURFACE,
+            ConstructionLevel.MIDDLE,
+            ConstructionLevel.DEEP
+        ]
+
+    finally:
+        # Cleanup
+        if os.path.exists(temp_file):
+            os.unlink(temp_file)

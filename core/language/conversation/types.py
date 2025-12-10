@@ -59,6 +59,8 @@ class ConversationContext:
         session_start: Oturum başlangıç zamanı
         turn_count: Toplam tur sayısı
         user_sentiment: Kullanıcı duygu ortalaması (-1.0 to 1.0)
+        sentiment_trend: Duygu eğilimi (-1: azalıyor, 0: sabit, 1: artıyor)
+        is_followup: Kullanıcı mesajı önceki mesaja takip mi?
         metadata: Ek bağlam bilgileri
     """
     messages: List[Message] = field(default_factory=list)
@@ -68,6 +70,8 @@ class ConversationContext:
     session_start: datetime = field(default_factory=datetime.now)
     turn_count: int = 0
     user_sentiment: float = 0.0  # -1.0 (very negative) to 1.0 (very positive)
+    sentiment_trend: int = 0  # -1 (decreasing), 0 (stable), 1 (increasing)
+    is_followup: bool = False  # True if user message is followup to previous assistant message
     metadata: dict = field(default_factory=dict)
 
     def get_recent_messages(self, n: int = 3) -> List[Message]:
