@@ -432,11 +432,22 @@ class CLIChat:
         Args:
             reason: Optional reason for feedback
         """
-        if not hasattr(self.agent, 'feedback'):
-            print("\n[Feedback ozelligi mevcut degil]")
-            return
+        success = False
 
-        success = self.agent.feedback(positive=True, reason=reason if reason else None)
+        # Episode logging feedback (JSONL update)
+        if self._episode_logger:
+            episode_success = self._episode_logger.add_feedback_to_last(explicit=1.0)
+            if episode_success:
+                success = True
+                logger.debug("Positive feedback saved to episode JSONL")
+
+        # Legacy learning feedback (pattern reinforcement)
+        if hasattr(self.agent, 'feedback'):
+            agent_success = self.agent.feedback(positive=True, reason=reason if reason else None)
+            if agent_success:
+                success = True
+                logger.debug("Positive feedback recorded for pattern")
+
         if success:
             print("\n[+] Tesekkurler! Pozitif feedback kaydedildi.")
         else:
@@ -449,11 +460,22 @@ class CLIChat:
         Args:
             reason: Optional reason for feedback
         """
-        if not hasattr(self.agent, 'feedback'):
-            print("\n[Feedback ozelligi mevcut degil]")
-            return
+        success = False
 
-        success = self.agent.feedback(positive=False, reason=reason if reason else None)
+        # Episode logging feedback (JSONL update)
+        if self._episode_logger:
+            episode_success = self._episode_logger.add_feedback_to_last(explicit=-1.0)
+            if episode_success:
+                success = True
+                logger.debug("Negative feedback saved to episode JSONL")
+
+        # Legacy learning feedback (pattern reinforcement)
+        if hasattr(self.agent, 'feedback'):
+            agent_success = self.agent.feedback(positive=False, reason=reason if reason else None)
+            if agent_success:
+                success = True
+                logger.debug("Negative feedback recorded for pattern")
+
         if success:
             print("\n[-] Tesekkurler! Negatif feedback kaydedildi.")
         else:

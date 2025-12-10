@@ -319,3 +319,47 @@ class JSONLEpisodeStore:
         """Tüm episode'ları sil (testing için)."""
         with open(self.filepath, "w", encoding="utf-8") as f:
             pass
+
+    def update_episode(self, episode_id: str, updates: dict) -> bool:
+        """
+        Episode'u güncelle (feedback eklemek için).
+
+        JSONL dosyasını okur, ilgili episode'u günceller ve yeniden yazar.
+
+        Args:
+            episode_id: Güncellenecek episode ID
+            updates: Güncellenecek alanlar (dict)
+
+        Returns:
+            bool: Başarılı ise True, episode bulunamazsa False
+        """
+        # Tüm satırları oku
+        lines = []
+        found = False
+
+        with open(self.filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                lines.append(line)
+
+        # Episode'u bul ve güncelle
+        updated_lines = []
+        for line in lines:
+            data = json.loads(line)
+            if data.get("id") == episode_id:
+                # Bu episode'u güncelle
+                data.update(updates)
+                found = True
+                updated_lines.append(json.dumps(data, ensure_ascii=False) + "\n")
+            else:
+                updated_lines.append(line)
+
+        if not found:
+            return False
+
+        # Dosyayı yeniden yaz
+        with open(self.filepath, "w", encoding="utf-8") as f:
+            f.writelines(updated_lines)
+
+        return True

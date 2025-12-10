@@ -264,10 +264,6 @@ class EpisodeLogger:
         """
         Sonradan episode'a feedback ekle.
 
-        NOT: Bu Faz 5'te kullanılmayacak, Faz 6+ için hazırlık.
-        Şimdilik episode'u store'dan oku, güncelle, tekrar kaydet yöntemi yok.
-        Future: Update operation eklenecek.
-
         Args:
             episode_id: Episode ID
             explicit: Explicit feedback score (-1.0 to 1.0)
@@ -278,9 +274,46 @@ class EpisodeLogger:
         Returns:
             bool: Success status
         """
-        # Future work için placeholder
-        # Store'a update metodları eklendiğinde implement edilecek
+        updates = {}
+
+        if explicit is not None:
+            updates["feedback_explicit"] = explicit
+
+        if implicit is not None:
+            updates["feedback_implicit"] = implicit.to_dict() if hasattr(implicit, 'to_dict') else implicit
+
+        if trust_before is not None:
+            updates["trust_before"] = trust_before
+
+        if trust_after is not None:
+            updates["trust_after"] = trust_after
+
+        if not updates:
+            return False
+
+        # Store'un update metodunu kullan
+        if hasattr(self.store, 'update_episode'):
+            return self.store.update_episode(episode_id, updates)
+
         return False
+
+    def add_feedback_to_last(self, explicit: float) -> bool:
+        """
+        Son episode'a explicit feedback ekle (CLI için kolaylık metodu).
+
+        Args:
+            explicit: Explicit feedback score (-1.0 to 1.0)
+
+        Returns:
+            bool: Success status
+        """
+        # Son episode'u bul
+        recent = self.store.get_recent(1)
+        if not recent:
+            return False
+
+        last_episode = recent[0]
+        return self.add_feedback(last_episode.id, explicit=explicit)
 
     def get_session_episodes(self) -> List[EpisodeLog]:
         """

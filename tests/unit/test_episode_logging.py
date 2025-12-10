@@ -896,3 +896,111 @@ def test_pipeline_logs_construction_category_correctly():
         # Cleanup
         if os.path.exists(temp_file):
             os.unlink(temp_file)
+
+
+# =========================================================================
+# 9. Feedback Persistence Tests (4 tests)
+# =========================================================================
+
+class TestFeedbackPersistence:
+    """Test feedback persistence to JSONL via update_episode."""
+
+    @pytest.fixture
+    def temp_store(self, tmp_path):
+        """Create temporary episode store."""
+        store_path = tmp_path / "feedback_episodes.jsonl"
+        return JSONLEpisodeStore(str(store_path))
+
+    @pytest.fixture
+    def logger(self, temp_store):
+        """Create episode logger with temp store."""
+        return EpisodeLogger(temp_store, "test_feedback_session")
+
+    def test_feedback_persists_to_jsonl(self, logger):
+        """Test that /feedback updates episode JSONL correctly."""
+        # Create and finalize an episode
+        episode_id = logger.start_episode("Merhaba", "merhaba")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.update_output("Selam, nasılsın?")
+        logger.finalize_episode(processing_time_ms=100)
+
+        # Verify initial state has no feedback
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_explicit is None
+
+        # Add positive feedback
+        success = logger.add_feedback(episode_id, explicit=1.0)
+        assert success is True
+
+        # Verify feedback persisted
+        updated_episode = logger.store.get_by_id(episode_id)
+        assert updated_episode.feedback_explicit == 1.0
+
+    def test_negative_feedback_persists(self, logger):
+        """Test negative feedback persists correctly."""
+        # Create and finalize an episode
+        episode_id = logger.start_episode("Test", "test")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.finalize_episode(processing_time_ms=50)
+
+        # Add negative feedback
+        success = logger.add_feedback(episode_id, explicit=-1.0)
+        assert success is True
+
+        # Verify
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_explicit == -1.0
+
+    def test_add_feedback_to_last_episode(self, logger):
+        """Test add_feedback_to_last convenience method."""
+        # Create multiple episodes
+        logger.start_episode("First", "first")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.finalize_episode(50)
+
+        logger.start_episode("Second", "second")
+        logger.update_intent(IntentCategory.THANK, confidence=0.85)
+        logger.finalize_episode(60)
+
+        # Add feedback to last episode
+        success = logger.add_feedback_to_last(explicit=1.0)
+        assert success is True
+
+        # Verify only the last episode has feedback
+        episodes = logger.get_session_episodes()
+        assert len(episodes) == 2
+        # First episode (older) should not have feedback
+        assert episodes[0].feedback_explicit is None
+        # Second episode (last) should have feedback
+        assert episodes[1].feedback_explicit == 1.0
+
+    def test_update_episode_nonexistent_returns_false(self, temp_store):
+        """Test update_episode returns False for nonexistent ID."""
+        result = temp_store.update_episode("nonexistent_id", {"feedback_explicit": 1.0})
+        assert result is False
+
+    def test_update_episode_preserves_other_fields(self, logger):
+        """Test update_episode only modifies specified fields."""
+        # Create episode with full data
+        episode_id = logger.start_episode("Merhaba", "merhaba")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.95)
+        logger.update_output("Selam!")
+        logger.update_risk(
+            risk_level=RiskLevel.LOW,
+            risk_score=0.1,
+            approval_status=ApprovalStatus.APPROVED
+        )
+        logger.finalize_episode(processing_time_ms=100)
+
+        # Update only feedback
+        logger.add_feedback(episode_id, explicit=1.0)
+
+        # Verify other fields unchanged
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_explicit == 1.0
+        assert episode.user_message == "Merhaba"
+        assert episode.intent_primary == IntentCategory.GREETING
+        assert episode.intent_confidence == 0.95
+        assert episode.response_text == "Selam!"
+        assert episode.risk_level == RiskLevel.LOW
+        assert episode.approval_status == ApprovalStatus.APPROVED
