@@ -443,8 +443,8 @@ class SituationBuilder:
             "technology": ["bilgisayar", "yazilim", "kod", "program", "internet"],
             "health": ["saglik", "hastalik", "doktor", "ilac", "agri"],
             "relationships": ["iliski", "aile", "arkadas", "sevgili"],
+            "education": ["okul", "ders", "sinav", "ogren", "egitim"],  # Before work to prioritize
             "work": ["is", "kariyer", "maas", "patron", "calisma"],
-            "education": ["okul", "ders", "sinav", "ogren", "egitim"],
             "emotions": ["hissediyorum", "duygu", "mutlu", "uzgun"],
             "help": ["yardim", "nasil", "ne yapmali"]
         }

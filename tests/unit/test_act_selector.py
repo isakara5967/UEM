@@ -167,9 +167,10 @@ class TestSituationBasedSelection:
         assert any(act in expected_acts for act in result.primary_acts)
 
     def test_select_help_request_situation(self, selector, help_situation):
-        """Test help request selects ADVISE or SUGGEST."""
+        """Test help request selects CLARIFY, ADVISE or SUGGEST."""
         result = selector.select(help_situation)
-        help_acts = {DialogueAct.ADVISE, DialogueAct.SUGGEST, DialogueAct.EXPLAIN}
+        # IntentRecognizer maps request_help to CLARIFY, ADVISE, SUGGEST
+        help_acts = {DialogueAct.CLARIFY, DialogueAct.ADVISE, DialogueAct.SUGGEST, DialogueAct.EXPLAIN}
         assert any(act in help_acts for act in result.primary_acts)
 
     def test_select_complaint_situation(self, selector, complaint_situation):
