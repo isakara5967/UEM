@@ -196,9 +196,12 @@ class IntentRecognizer:
         for category, patterns in self._pattern_cache.items():
             for pattern in patterns:
                 if self._pattern_matches(pattern, normalized_text):
+                    # Pattern pozisyonunu bul
+                    pattern_position = self._get_pattern_position(pattern, normalized_text)
+
                     # Confidence hesapla
                     confidence = self._calculate_confidence(
-                        pattern, normalized_text, category
+                        pattern, normalized_text, category, pattern_position
                     )
 
                     matches.append(IntentMatch(
@@ -241,11 +244,36 @@ class IntentRecognizer:
             # Çok kelimeli pattern'ler için substring yeterli
             return pattern in text
 
+    def _get_pattern_position(self, pattern: str, text: str) -> int:
+        """
+        Pattern'in metinde kaçıncı pozisyonda olduğunu döndür.
+
+        Args:
+            pattern: Aranacak pattern
+            text: Metin
+
+        Returns:
+            Pattern başlangıç pozisyonu (0-indexed), bulunamazsa -1
+        """
+        # Kelime sınırları ile ara
+        if " " not in pattern:
+            pattern_regex = r'\b' + re.escape(pattern) + r'\b'
+            match = re.search(pattern_regex, text)
+            if match:
+                return match.start()
+        else:
+            # Substring ara
+            idx = text.find(pattern)
+            if idx != -1:
+                return idx
+        return -1
+
     def _calculate_confidence(
         self,
         pattern: str,
         text: str,
-        category: IntentCategory
+        category: IntentCategory,
+        pattern_position: int = -1
     ) -> float:
         """
         Eşleşme için confidence skoru hesapla.
@@ -255,11 +283,13 @@ class IntentRecognizer:
         - Pattern ağırlığı (PATTERN_WEIGHTS'ten)
         - Mesaj uzunluğu
         - Tam eşleşme vs. kısmi eşleşme
+        - Pattern pozisyonu (compound intent için)
 
         Args:
             pattern: Eşleşen pattern
             text: Normalize edilmiş metin
             category: Intent kategorisi
+            pattern_position: Pattern'in metindeki başlangıç pozisyonu
 
         Returns:
             Confidence skoru (0.0-1.0)
@@ -296,6 +326,15 @@ class IntentRecognizer:
         if "?" in text:
             if "ask" in category.value or "question" in category.value:
                 confidence += 0.05
+
+        # 6. Pattern pozisyonu bonusu (compound intent için)
+        # Mesajda önce geçen pattern daha yüksek öncelik
+        if pattern_position >= 0 and len(text) > len(pattern):
+            # Pozisyon yüzdesini hesapla
+            position_ratio = pattern_position / max(1, len(text) - len(pattern))
+            # Önde olan pattern'e bonus (0-10% arası)
+            position_bonus = (1.0 - position_ratio) * 0.10
+            confidence += position_bonus
 
         # Sınırla
         return min(1.0, max(0.0, confidence))

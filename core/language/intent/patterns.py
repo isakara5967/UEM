@@ -54,11 +54,6 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "selam as",
 
         # Informal
-        "naber",
-        "nbr",
-        "n'aber",
-        "ne var ne yok",
-        "ne haber",
         "selamunaleyküm",  # yazım hatası
 
         # İngilizce varyantlar
@@ -124,6 +119,7 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "her sey yolunda mi",
         "iyisin dimi",
         "iyi misiniz",
+        "ne var ne yok",
 
         # Kısaltmalar
         "nbr",
@@ -210,8 +206,6 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "excellent",
         "good",
         "fine",
-        "okay",
-        "ok",
 
         # Informal/Abartılı
         "bomba gibiyim",
