@@ -46,6 +46,7 @@ from ..construction.realizer import (
     ConstructionRealizerConfig,
     RealizationResult,
 )
+from ..conversation import ContextManager
 from .config import PipelineConfig
 from .self_critique import SelfCritique, CritiqueResult
 
@@ -159,7 +160,8 @@ class ThoughtToSpeechPipeline:
         construction_grammar: Optional[ConstructionGrammar] = None,
         construction_selector: Optional[ConstructionSelector] = None,
         construction_realizer: Optional[ConstructionRealizer] = None,
-        self_critique: Optional[SelfCritique] = None
+        self_critique: Optional[SelfCritique] = None,
+        context_manager: Optional[ContextManager] = None
     ):
         """
         ThoughtToSpeechPipeline olustur.
@@ -175,6 +177,7 @@ class ThoughtToSpeechPipeline:
             construction_selector: ConstructionSelector (opsiyonel)
             construction_realizer: ConstructionRealizer (opsiyonel)
             self_critique: SelfCritique (opsiyonel)
+            context_manager: ContextManager (opsiyonel, multi-turn context için)
         """
         self.config = config or PipelineConfig()
 
@@ -214,6 +217,9 @@ class ThoughtToSpeechPipeline:
                 self.config.self_critique_config
             )
 
+        # Context manager (opsiyonel - multi-turn için)
+        self.context_manager = context_manager
+
     def process(
         self,
         user_message: str,
@@ -235,9 +241,23 @@ class ThoughtToSpeechPipeline:
         result_metadata = {"id": result_id, **(metadata or {})}
 
         try:
+            # Context manager varsa, eski format'tan yükle
+            if self.context_manager and context:
+                self.context_manager.from_legacy_format(context)
+
             # 1. SituationModel olustur
             situation = self._build_situation(user_message, context)
             result_metadata["situation_id"] = situation.id
+
+            # Context manager'a user message ekle
+            if self.context_manager:
+                primary_intent = situation.intentions[0].goal if situation.intentions else None
+                from ..intent.types import IntentCategory
+                try:
+                    intent_enum = IntentCategory(primary_intent) if primary_intent else None
+                except (ValueError, AttributeError):
+                    intent_enum = None
+                self.context_manager.add_user_message(user_message, intent_enum)
 
             # 2. DialogueAct sec
             act_selection = self._select_acts(situation)
@@ -298,6 +318,11 @@ class ThoughtToSpeechPipeline:
             # Uzunluk kontrolu
             if len(output) > self.config.max_output_length:
                 output = output[: self.config.max_output_length - 3] + "..."
+
+            # Context manager'a assistant message ekle
+            if self.context_manager:
+                primary_act = act_selection.primary_acts[0] if act_selection.primary_acts else None
+                self.context_manager.add_assistant_message(output, primary_act)
 
             return PipelineResult(
                 success=True,

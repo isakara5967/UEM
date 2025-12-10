@@ -127,8 +127,8 @@ class SituationBuilder:
         # 1. Aktörleri çıkar
         actors = self._extract_actors(user_message, conversation_context)
 
-        # 2. Niyetleri çıkar
-        intentions = self._extract_intentions(user_message, actors)
+        # 2. Niyetleri çıkar (context-aware)
+        intentions = self._extract_intentions(user_message, actors, conversation_context)
 
         # 3. Riskleri değerlendir
         risks: List[Risk] = []
@@ -226,16 +226,19 @@ class SituationBuilder:
     def _extract_intentions(
         self,
         message: str,
-        actors: List[Actor]
+        actors: List[Actor],
+        conversation_context: Optional[List[Dict[str, str]]] = None
     ) -> List[Intention]:
         """
         Mesajdan niyetleri çıkar.
 
         Yeni intent recognition sistemi kullanır (IntentRecognizer).
+        Context-aware: Önceki mesajlardan yararlanır.
 
         Args:
             message: Kullanıcı mesajı
             actors: Aktör listesi
+            conversation_context: Konuşma geçmişi (context-aware için)
 
         Returns:
             List[Intention]: Niyet listesi
@@ -249,6 +252,19 @@ class SituationBuilder:
 
         # IntentRecognizer ile intent tanıma
         intent_result = self.intent_recognizer.recognize(message)
+
+        # Context-aware confidence boost
+        # Eğer önceki mesajlarla ilişkiliyse confidence artır
+        if conversation_context and len(conversation_context) >= 2:
+            # Basit followup detection
+            from core.utils.text import normalize_turkish
+            msg_normalized = normalize_turkish(message)
+            followup_indicators = ["peki", "ya", "o zaman", "ee", "bunun", "onun"]
+            is_followup = any(ind in msg_normalized for ind in followup_indicators)
+
+            if is_followup:
+                # Followup ise confidence'ı hafifçe artır
+                intent_result.confidence = min(1.0, intent_result.confidence * 1.1)
 
         # Primary intent
         if intent_result.primary != IntentCategory.UNKNOWN:

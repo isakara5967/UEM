@@ -143,9 +143,11 @@ class DialogueActSelector:
         """
         Ana seçim metodu - SituationModel'den DialogueAct'ler seç.
 
+        Context-aware: Önceki act'leri ve konuşma durumunu dikkate alır.
+
         Args:
             situation: Durum modeli
-            context: Ek bağlam
+            context: Ek bağlam (conversation history, last acts, etc.)
 
         Returns:
             ActSelectionResult: Seçim sonucu
@@ -153,27 +155,31 @@ class DialogueActSelector:
         # 1. Tüm act'ler için skor hesapla
         all_scores = self._score_all_acts(situation)
 
-        # 2. Etik kontrolü uygula
+        # 2. Context-aware adjustments
+        if context:
+            all_scores = self._apply_context_adjustments(all_scores, context)
+
+        # 3. Etik kontrolü uygula
         if self.config.enable_ethics_check:
             all_scores = self._apply_ethics_filter(all_scores, situation)
 
-        # 3. Affect etkisini uygula
+        # 4. Affect etkisini uygula
         if self.config.enable_affect_influence:
             all_scores = self._apply_affect_influence(all_scores, situation)
 
-        # 4. Stratejiye göre ayarla
+        # 5. Stratejiye göre ayarla
         all_scores = self._apply_strategy(all_scores)
 
-        # 5. Sırala
+        # 6. Sırala
         sorted_scores = sorted(all_scores, key=lambda x: x.score, reverse=True)
 
-        # 6. Eşik üstündekileri al
+        # 7. Eşik üstündekileri al
         valid_scores = [
             s for s in sorted_scores
             if s.score >= self.config.min_score_threshold
         ]
 
-        # 7. Primary ve secondary ayır
+        # 8. Primary ve secondary ayır
         primary = [
             s.act for s in valid_scores[:self.config.max_primary_acts]
         ]
@@ -184,7 +190,7 @@ class DialogueActSelector:
             ]
         ]
 
-        # 8. Confidence hesapla
+        # 9. Confidence hesapla
         confidence = self._calculate_confidence(valid_scores, situation)
 
         # Fallback: hiç act seçilmediyse
@@ -541,6 +547,55 @@ class DialogueActSelector:
             diff_factor * 0.3
         )
         return min(1.0, max(0.0, confidence))
+
+    def _apply_context_adjustments(
+        self,
+        scores: List[ActScore],
+        context: Dict[str, Any]
+    ) -> List[ActScore]:
+        """
+        Context bilgisine göre skorları ayarla.
+
+        Args:
+            scores: Mevcut skorlar
+            context: Bağlam bilgisi
+
+        Returns:
+            Güncellenmiş skorlar
+        """
+        # Önceki assistant act varsa, tekrarlama önle
+        last_act = context.get("last_assistant_act")
+        if last_act:
+            for score in scores:
+                if score.act == last_act:
+                    # Aynı act'i tekrar kullanmayı azalt
+                    score.score *= 0.7
+                    score.reasons.append("Context: avoiding repetition")
+
+        # Sentiment trend'e göre ayarla
+        sentiment_trend = context.get("sentiment_trend")
+        if sentiment_trend == "negative":
+            # Negatif trend varsa empati act'lerini güçlendir
+            empathy_acts = [
+                DialogueAct.EMPATHIZE,
+                DialogueAct.COMFORT,
+                DialogueAct.ENCOURAGE
+            ]
+            for score in scores:
+                if score.act in empathy_acts:
+                    score.score = min(1.0, score.score * 1.15)
+                    score.reasons.append("Context: negative sentiment trend")
+
+        # Followup sorusu ise CLARIFY/EXPLAIN'i güçlendir
+        is_followup = context.get("is_followup", False)
+        if is_followup:
+            followup_acts = [DialogueAct.CLARIFY, DialogueAct.EXPLAIN, DialogueAct.INFORM]
+            for score in scores:
+                if score.act in followup_acts:
+                    score.score = min(1.0, score.score * 1.1)
+                    score.reasons.append("Context: followup question")
+
+        return scores
 
     def _build_intent_act_map(self) -> Dict[str, List[DialogueAct]]:
         """
