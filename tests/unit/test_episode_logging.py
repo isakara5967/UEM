@@ -86,8 +86,8 @@ class TestEpisodeLogStructure:
         assert episode.intent_secondary == IntentCategory.ASK_WELLBEING
         assert episode.has_compound_intent
         assert len(episode.intent_matched_pattern_ids) == 2
-        assert episode.response_length_chars == 36
-        assert episode.response_length_words == 6
+        assert episode.response_length_chars == 34  # "Merhaba! Ben iyiyim, sen nasılsın?"
+        assert episode.response_length_words == 5
 
     def test_episode_log_response_length_calculation(self):
         """Test automatic response length calculation."""
@@ -150,7 +150,7 @@ class TestEpisodeLogStructure:
         assert not episode.has_implicit_feedback
         assert episode.overall_feedback_score == 0.8
         assert episode.is_successful
-        assert episode.trust_delta == 0.2
+        assert episode.trust_delta == pytest.approx(0.2, abs=1e-6)
 
     def test_episode_to_dict(self):
         """Test episode serialization to dict."""
@@ -733,7 +733,8 @@ class TestPipelineIntegration:
         episodes = episode_logger.get_session_episodes()
         episode = episodes[0]
 
-        assert episode.processing_time_ms > 0
+        # Processing time should be non-negative (can be 0 in fast unit tests)
+        assert episode.processing_time_ms >= 0
         assert episode.processing_time_ms < 10000  # Should be under 10 seconds
 
 

@@ -77,6 +77,9 @@ class ImplicitFeedback:
 
         Returns:
             float: -1.0 to 1.0 arası skor
+
+        TODO Faz 6+: Daha sofistike scoring için FeedbackWeighter kullan.
+        Şimdilik basit weighted sum yeterli.
         """
         score = 0.0
 

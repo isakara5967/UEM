@@ -426,6 +426,12 @@ class ThoughtToSpeechPipeline:
             )
 
         except Exception as e:
+            # Episode logging: Finalize with error (Faz 5)
+            if self.episode_logger and self.episode_logger.current_episode:
+                processing_time_ms = int((time.time() - start_time) * 1000)
+                # Partial data with error - still valuable for debugging
+                self.episode_logger.finalize_episode(processing_time_ms)
+
             return PipelineResult.failure(
                 error=str(e),
                 fallback_output=self.config.fallback_response
