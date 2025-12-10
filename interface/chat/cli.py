@@ -30,6 +30,16 @@ try:
 except ImportError:
     UEM_AVAILABLE = False
 
+# Faz 5 - Episode Logging
+try:
+    from core.learning import (
+        EpisodeLogger,
+        JSONLEpisodeStore,
+    )
+    EPISODE_LOGGING_AVAILABLE = True
+except ImportError:
+    EPISODE_LOGGING_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,6 +95,13 @@ class CLIChat:
         self._running = False
         self._session_id: Optional[str] = None
 
+        # Faz 5 - Episode Logging
+        self._episode_store: Optional[Any] = None
+        self._episode_logger: Optional[Any] = None
+        if EPISODE_LOGGING_AVAILABLE:
+            self._episode_store = JSONLEpisodeStore("data/episodes.jsonl")
+            logger.info("Episode logging enabled (data/episodes.jsonl)")
+
         logger.info(f"CLIChat initialized (user={user_id}, debug={show_debug})")
 
     # ===================================================================
@@ -101,6 +118,14 @@ class CLIChat:
         self._running = True
         self._print_welcome()
         self._session_id = self.agent.start_session(self.user_id)
+
+        # Faz 5 - Initialize episode logger with session ID
+        if EPISODE_LOGGING_AVAILABLE and self._episode_store:
+            self._episode_logger = EpisodeLogger(self._episode_store, self._session_id)
+            # Inject into agent's pipeline if available
+            if hasattr(self.agent, '_pipeline') and self.agent._pipeline:
+                self.agent._pipeline.episode_logger = self._episode_logger
+                logger.info(f"Episode logger injected into pipeline (session={self._session_id})")
 
         while self._running:
             user_input = self._get_input()
@@ -137,11 +162,18 @@ class CLIChat:
         """
         Get user input from terminal.
 
+        Handles encoding errors gracefully (replaces invalid UTF-8).
+
         Returns:
             User input string or None if interrupted
         """
         try:
-            return input("\nSen: ").strip()
+            user_input = input("\nSen: ").strip()
+            # Clean surrogate characters that cause JSON encoding errors
+            if user_input:
+                # Encode with 'replace' to remove surrogates, then decode
+                user_input = user_input.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+            return user_input
         except (KeyboardInterrupt, EOFError):
             print()  # New line after Ctrl+C
             self.stop()

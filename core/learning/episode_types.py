@@ -29,6 +29,25 @@ from core.language.risk.types import RiskLevel
 from core.language.risk.approver import ApprovalDecision
 
 
+def _clean_string(s: str) -> str:
+    r"""
+    Remove surrogate characters from string.
+
+    Surrogate characters (\udcXX) cause JSON encoding errors.
+    This happens when terminal input contains invalid UTF-8.
+
+    Args:
+        s: Input string (may contain surrogates)
+
+    Returns:
+        Clean string (surrogates replaced with �)
+    """
+    if not s:
+        return s
+    # Encode with 'replace' to remove surrogates, then decode
+    return s.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+
+
 class ConstructionSource(str, Enum):
     """Construction kaynağı - nereden geldi?"""
     HUMAN_DEFAULT = "human_default"  # MVCS gibi insan tarafından yazılmış
@@ -228,17 +247,21 @@ class EpisodeLog:
         return None
 
     def to_dict(self) -> dict:
-        """Episode'u dictionary'e çevir (JSONL için)."""
+        """
+        Episode'u dictionary'e çevir (JSONL için).
+
+        Surrogate characters temizlenir (JSON encoding hatası önleme).
+        """
         return {
             # Kimlik
-            "id": self.id,
-            "session_id": self.session_id,
+            "id": _clean_string(self.id),
+            "session_id": _clean_string(self.session_id),
             "turn_number": self.turn_number,
             "timestamp": self.timestamp.isoformat(),
 
-            # Input
-            "user_message": self.user_message,
-            "user_message_normalized": self.user_message_normalized,
+            # Input (clean surrogates)
+            "user_message": _clean_string(self.user_message),
+            "user_message_normalized": _clean_string(self.user_message_normalized),
 
             # Intent
             "intent_primary": self.intent_primary.value if self.intent_primary else None,
@@ -252,7 +275,7 @@ class EpisodeLog:
             "context_last_assistant_act": self.context_last_assistant_act.value if self.context_last_assistant_act else None,
             "context_sentiment": self.context_sentiment,
             "context_sentiment_trend": self.context_sentiment_trend,
-            "context_topic": self.context_topic,
+            "context_topic": _clean_string(self.context_topic) if self.context_topic else None,
             "context_is_followup": self.context_is_followup,
 
             # Karar
@@ -260,14 +283,14 @@ class EpisodeLog:
             "dialogue_act_score": self.dialogue_act_score,
             "dialogue_act_alternatives": self.dialogue_act_alternatives,
 
-            # Construction
-            "construction_id": self.construction_id,
-            "construction_category": self.construction_category,
+            # Construction (clean surrogates)
+            "construction_id": _clean_string(self.construction_id),
+            "construction_category": _clean_string(self.construction_category),
             "construction_source": self.construction_source.value if self.construction_source else None,
             "construction_level": self.construction_level.value if self.construction_level else None,
 
-            # Output
-            "response_text": self.response_text,
+            # Output (clean surrogates)
+            "response_text": _clean_string(self.response_text),
             "response_length_chars": self.response_length_chars,
             "response_length_words": self.response_length_words,
 
