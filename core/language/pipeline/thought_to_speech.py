@@ -50,6 +50,13 @@ from ..conversation import ContextManager
 from .config import PipelineConfig
 from .self_critique import SelfCritique, CritiqueResult
 
+# Faz 5 - Episode Logging
+import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.learning.episode_logger import EpisodeLogger
+
 
 def generate_pipeline_result_id() -> str:
     """Generate unique pipeline result ID."""
@@ -161,7 +168,8 @@ class ThoughtToSpeechPipeline:
         construction_selector: Optional[ConstructionSelector] = None,
         construction_realizer: Optional[ConstructionRealizer] = None,
         self_critique: Optional[SelfCritique] = None,
-        context_manager: Optional[ContextManager] = None
+        context_manager: Optional[ContextManager] = None,
+        episode_logger: Optional["EpisodeLogger"] = None
     ):
         """
         ThoughtToSpeechPipeline olustur.
@@ -178,6 +186,7 @@ class ThoughtToSpeechPipeline:
             construction_realizer: ConstructionRealizer (opsiyonel)
             self_critique: SelfCritique (opsiyonel)
             context_manager: ContextManager (opsiyonel, multi-turn context için)
+            episode_logger: EpisodeLogger (opsiyonel, Faz 5 episode logging için)
         """
         self.config = config or PipelineConfig()
 
@@ -220,6 +229,9 @@ class ThoughtToSpeechPipeline:
         # Context manager (opsiyonel - multi-turn için)
         self.context_manager = context_manager
 
+        # Episode logger (opsiyonel - Faz 5 için)
+        self.episode_logger = episode_logger
+
     def process(
         self,
         user_message: str,
@@ -240,6 +252,15 @@ class ThoughtToSpeechPipeline:
         result_id = generate_pipeline_result_id()
         result_metadata = {"id": result_id, **(metadata or {})}
 
+        # Episode logging başlat (Faz 5)
+        start_time = time.time()
+        episode_id = None
+        if self.episode_logger:
+            from core.utils.text import normalize_turkish
+            normalized_message = normalize_turkish(user_message)
+            episode_id = self.episode_logger.start_episode(user_message, normalized_message)
+            result_metadata["episode_id"] = episode_id
+
         try:
             # Context manager varsa, eski format'tan yükle
             if self.context_manager and context:
@@ -248,6 +269,16 @@ class ThoughtToSpeechPipeline:
             # 1. SituationModel olustur
             situation = self._build_situation(user_message, context)
             result_metadata["situation_id"] = situation.id
+
+            # Episode logging: Intent update (Faz 5)
+            if self.episode_logger and hasattr(situation, '_intent_result'):
+                intent_result = situation._intent_result
+                self.episode_logger.update_intent(
+                    primary=intent_result.primary,
+                    secondary=intent_result.secondary,
+                    confidence=intent_result.confidence,
+                    pattern_ids=intent_result.matched_pattern_ids
+                )
 
             # Context manager'a user message ekle
             if self.context_manager:
@@ -259,9 +290,33 @@ class ThoughtToSpeechPipeline:
                     intent_enum = None
                 self.context_manager.add_user_message(user_message, intent_enum)
 
+            # Episode logging: Context update (Faz 5)
+            if self.episode_logger:
+                self.episode_logger.update_context(self.context_manager)
+
             # 2. DialogueAct sec
             act_selection = self._select_acts(situation)
             result_metadata["act_count"] = len(act_selection.primary_acts)
+
+            # Episode logging: Decision update (Faz 5)
+            if self.episode_logger and act_selection.primary_acts:
+                primary_act = act_selection.primary_acts[0]
+                # Find primary act score from all_scores
+                primary_score = next(
+                    (score_obj.score for score_obj in act_selection.all_scores if score_obj.act == primary_act),
+                    0.0
+                )
+                # Get alternatives (all acts except primary)
+                alternatives = [
+                    (score_obj.act.value, score_obj.score)
+                    for score_obj in act_selection.all_scores
+                    if score_obj.act != primary_act
+                ]
+                self.episode_logger.update_decision(
+                    act_selected=primary_act,
+                    act_score=primary_score,
+                    alternatives=alternatives[:5]  # Top 5 alternatives
+                )
 
             # 3. MessagePlan olustur
             message_plan = self._plan_message(situation, act_selection)
@@ -278,6 +333,19 @@ class ThoughtToSpeechPipeline:
             if self.config.enable_approval_check and risk_assessment:
                 approval = self._approve(risk_assessment)
                 result_metadata["approval"] = approval.decision.value
+
+                # Episode logging: Risk update (Faz 5)
+                if self.episode_logger:
+                    from core.learning.episode_types import ApprovalStatus
+                    approval_status = ApprovalStatus.APPROVED if approval.is_approved else (
+                        ApprovalStatus.NEEDS_REVISION if approval.needs_revision else ApprovalStatus.REJECTED
+                    )
+                    self.episode_logger.update_risk(
+                        risk_level=risk_assessment.level,
+                        risk_score=risk_assessment.overall_score,
+                        approval_status=approval_status,
+                        approval_reasons=[approval.reasoning] if approval.reasoning else []
+                    )
 
                 # Reddedildi mi?
                 if approval.is_rejected:
@@ -297,12 +365,27 @@ class ThoughtToSpeechPipeline:
             constructions = self._select_construction(message_plan, situation)
             result_metadata["construction_count"] = len(constructions)
 
+            # Episode logging: Construction update (Faz 5)
+            if self.episode_logger and constructions:
+                from core.learning.episode_types import ConstructionSource, ConstructionLevel
+                first_construction = constructions[0]
+                self.episode_logger.update_construction(
+                    construction_id=first_construction.id,
+                    category=first_construction.meaning.category if hasattr(first_construction.meaning, 'category') else "unknown",
+                    source=ConstructionSource.HUMAN_DEFAULT,  # MVCS constructions are human-written
+                    level=ConstructionLevel(first_construction.level.value) if hasattr(first_construction, 'level') else ConstructionLevel.SURFACE
+                )
+
             # 7. Cikti uret
             output = self._realize(constructions, message_plan)
 
             # Construction bulunamazsa fallback
             if not output:
                 output = self._generate_fallback_output(message_plan, situation)
+
+            # Episode logging: Output update (Faz 5)
+            if self.episode_logger:
+                self.episode_logger.update_output(output)
 
             # 8. Self critique (opsiyonel)
             critique_result = None
@@ -323,6 +406,11 @@ class ThoughtToSpeechPipeline:
             if self.context_manager:
                 primary_act = act_selection.primary_acts[0] if act_selection.primary_acts else None
                 self.context_manager.add_assistant_message(output, primary_act)
+
+            # Episode logging: Finalize (Faz 5)
+            if self.episode_logger:
+                processing_time_ms = int((time.time() - start_time) * 1000)
+                self.episode_logger.finalize_episode(processing_time_ms)
 
             return PipelineResult(
                 success=True,

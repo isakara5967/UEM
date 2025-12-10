@@ -151,7 +151,7 @@ class SituationBuilder:
             actors, intentions, risks, emotional_state
         )
 
-        return SituationModel(
+        situation = SituationModel(
             id=situation_id,
             actors=actors,
             intentions=intentions,
@@ -161,6 +161,12 @@ class SituationBuilder:
             understanding_score=understanding_score,
             context={"summary": context_summary, **(metadata or {})}
         )
+
+        # Faz 5: Attach intent_result for episode logging
+        if hasattr(self, '_last_intent_result'):
+            situation._intent_result = self._last_intent_result
+
+        return situation
 
     def _extract_actors(
         self,
@@ -252,6 +258,9 @@ class SituationBuilder:
 
         # IntentRecognizer ile intent tanıma
         intent_result = self.intent_recognizer.recognize(message)
+
+        # Faz 5: Store intent_result for episode logging
+        self._last_intent_result = intent_result
 
         # Context-aware confidence boost
         # Eğer önceki mesajlarla ilişkiliyse confidence artır
