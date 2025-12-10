@@ -129,17 +129,24 @@ class ConstructionRealizer:
         # 2. Template'i doldur
         text, filled, unfilled_required = self._fill_template(construction, slot_values)
 
-        # Zorunlu slot doldurulamadıysa başarısız say
+        # Zorunlu slot doldurulamadıysa: strict modda başarısız, non-strict'te warning
         if unfilled_required:
             all_missing = list(set(missing + unfilled_required))
-            return RealizationResult(
-                success=False,
-                text="",
-                construction_id=construction.id,
-                filled_slots=filled,
-                missing_slots=all_missing,
-                errors=errors + [f"Required slot not filled: {s}" for s in unfilled_required]
-            )
+
+            if self.config.strict_validation:
+                # Strict mode: Fail immediately
+                return RealizationResult(
+                    success=False,
+                    text="",
+                    construction_id=construction.id,
+                    filled_slots=filled,
+                    missing_slots=all_missing,
+                    errors=errors + [f"Required slot not filled: {s}" for s in unfilled_required]
+                )
+            else:
+                # Non-strict mode: Continue but log as errors
+                errors = errors + [f"Required slot not filled: {s}" for s in unfilled_required]
+                missing = all_missing
 
         # Boş metin varsa başarısız say
         if not text.strip():
