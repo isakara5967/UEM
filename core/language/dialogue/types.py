@@ -65,6 +65,7 @@ class DialogueAct(str, Enum):
     RECEIVE_THANKS = "receive_thanks"           # Teşekkür alındığında
     LIGHT_CHITCHAT = "light_chitchat"           # Hafif sohbet
     ACKNOWLEDGE_POSITIVE = "acknowledge_positive" # Pozitif duyguya yanıt
+    CLOSE_CONVERSATION = "close_conversation"   # Vedalaşma, kapanış
 
 
 class ToneType(str, Enum):

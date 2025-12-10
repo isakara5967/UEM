@@ -610,7 +610,7 @@ class DialogueActSelector:
         return {
             # Yeni IntentCategory enum değerleri
             "greeting": [DialogueAct.GREET, DialogueAct.ACKNOWLEDGE],
-            "farewell": [DialogueAct.ACKNOWLEDGE, DialogueAct.GREET],
+            "farewell": [DialogueAct.CLOSE_CONVERSATION, DialogueAct.ACKNOWLEDGE],
             "ask_wellbeing": [DialogueAct.RESPOND_WELLBEING, DialogueAct.INFORM],  # Hedefli B: kullanıcı bize sorduğunda
             "ask_identity": [DialogueAct.INFORM],  # MVCS: SELF_INTRO
             "express_positive": [DialogueAct.ACKNOWLEDGE_POSITIVE, DialogueAct.ACKNOWLEDGE, DialogueAct.ENCOURAGE],  # Hedefli B

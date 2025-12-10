@@ -52,6 +52,7 @@ class MVCSCategory(str, Enum):
     RECEIVE_THANKS = "receive_thanks"
     LIGHT_CHITCHAT = "light_chitchat"
     ACKNOWLEDGE_POSITIVE = "acknowledge_positive"
+    CLOSE_CONVERSATION = "close_conversation"  # Vedalaşma, kapanış
 
 
 @dataclass
@@ -147,6 +148,9 @@ class MVCSLoader:
         # 11. ACKNOWLEDGE_POSITIVE - Pozitif duyguya yanıt
         constructions.extend(self._create_acknowledge_positive_constructions())
 
+        # 12. CLOSE_CONVERSATION - Vedalaşma, kapanış
+        constructions.extend(self._create_close_conversation_constructions())
+
         self._all_constructions = constructions
         logger.info(f"MVCS loaded: {len(constructions)} constructions")
 
@@ -189,6 +193,8 @@ class MVCSLoader:
             constructions = self._create_light_chitchat_constructions()
         elif category == MVCSCategory.ACKNOWLEDGE_POSITIVE:
             constructions = self._create_acknowledge_positive_constructions()
+        elif category == MVCSCategory.CLOSE_CONVERSATION:
+            constructions = self._create_close_conversation_constructions()
         else:
             constructions = []
 
@@ -1226,6 +1232,106 @@ class MVCSLoader:
                     "is_mvcs": True,
                     "tone": "enthusiastic",
                     "formality": 0.3,
+                }
+            ))
+
+        return constructions
+
+    def _create_close_conversation_constructions(self) -> List[Construction]:
+        """CLOSE_CONVERSATION - Vedalaşma, kapanış construction'ları oluştur."""
+        constructions = []
+
+        # 1. Görüşürüz, iyi günler
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Gorusuruz, iyi gunler!",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="close_conversation",
+                effects=["farewell", "well_wishes"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
+                "mvcs_name": "farewell_see_you",
+                "is_mvcs": True,
+                "tone": "friendly",
+                "formality": 0.5,
+            }
+        ))
+
+        # 2. Hoşça kal, tekrar beklerim
+        constructions.append(Construction(
+            id=generate_construction_id(),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template="Hosca kal, tekrar beklerim.",
+                slots={}
+            ),
+            meaning=ConstructionMeaning(
+                dialogue_act="close_conversation",
+                effects=["farewell", "invitation_to_return"]
+            ),
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data={
+                "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
+                "mvcs_name": "farewell_see_you_again",
+                "is_mvcs": True,
+                "tone": "warm",
+                "formality": 0.4,
+            }
+        ))
+
+        # 3. Kendine iyi bak, görüşmek üzere
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Kendine iyi bak, gorusmek uzere!",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="close_conversation",
+                    effects=["farewell", "care_expressed"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
+                    "mvcs_name": "farewell_take_care",
+                    "is_mvcs": True,
+                    "tone": "caring",
+                    "formality": 0.3,
+                }
+            ))
+
+        # 4. İyi günler, her zaman yazabilirsin
+        if self.config.include_variations:
+            constructions.append(Construction(
+                id=generate_construction_id(),
+                level=ConstructionLevel.SURFACE,
+                form=ConstructionForm(
+                    template="Iyi gunler, her zaman yazabilirsin.",
+                    slots={}
+                ),
+                meaning=ConstructionMeaning(
+                    dialogue_act="close_conversation",
+                    effects=["farewell", "availability_expressed"]
+                ),
+                confidence=self.config.default_confidence,
+                source=self.config.source,
+                extra_data={
+                    "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
+                    "mvcs_name": "farewell_always_available",
+                    "is_mvcs": True,
+                    "tone": "supportive",
+                    "formality": 0.4,
                 }
             ))
 
