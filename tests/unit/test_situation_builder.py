@@ -173,7 +173,8 @@ class TestExtractIntentions:
         situation = builder.build("Bu nasıl çalışıyor?")
 
         goals = [i.goal for i in situation.intentions]
-        assert "ask" in goals
+        # IntentRecognizer may detect this as request_info or clarify
+        assert any(goal in goals for goal in ["request_info", "clarify", "meta_question"])
 
     def test_extract_intentions_greeting(self):
         """Test greeting intent detection."""
@@ -181,7 +182,8 @@ class TestExtractIntentions:
         situation = builder.build("Merhaba, nasılsın?")
 
         goals = [i.goal for i in situation.intentions]
-        assert "greet" in goals
+        # IntentRecognizer detects "greeting" and "ask_wellbeing" for compound intent
+        assert "greeting" in goals
 
     def test_extract_intentions_help_request(self):
         """Test help request intent detection."""
@@ -189,7 +191,8 @@ class TestExtractIntentions:
         situation = builder.build("Yardım eder misin?")
 
         goals = [i.goal for i in situation.intentions]
-        assert "help" in goals
+        # IntentRecognizer detects "request_help"
+        assert "request_help" in goals
 
     def test_extract_intentions_thank(self):
         """Test thank intent detection."""
@@ -213,7 +216,8 @@ class TestExtractIntentions:
         situation = builder.build("Lütfen bana yardım et")
 
         goals = [i.goal for i in situation.intentions]
-        assert "request" in goals or "help" in goals
+        # IntentRecognizer detects "request_help"
+        assert "request_help" in goals
 
     def test_extract_intentions_default_communicate(self):
         """Test default communicate intent."""

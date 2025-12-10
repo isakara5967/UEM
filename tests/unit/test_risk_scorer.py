@@ -561,17 +561,20 @@ class TestRiskPatterns:
         """Güvenlik pattern'leri."""
         patterns = default_scorer.get_risk_patterns()
         assert "intihar" in patterns["safety"]
-        assert "ölmek" in patterns["safety"]
+        # Patterns use normalized form
+        assert "olmek" in patterns["safety"]
 
     def test_ethical_patterns(self, default_scorer):
         """Etik pattern'leri."""
         patterns = default_scorer.get_risk_patterns()
-        assert "yasadışı" in patterns["ethical"]
+        # Patterns use normalized form
+        assert "yasadisi" in patterns["ethical"]
 
     def test_privacy_patterns(self, default_scorer):
         """Gizlilik pattern'leri."""
         patterns = default_scorer.get_risk_patterns()
-        assert "şifre" in patterns["privacy"]
+        # Patterns use normalized form
+        assert "sifre" in patterns["privacy"]
 
 
 # ============================================================================
