@@ -32,6 +32,7 @@ from .types import (
     ConstructionMeaning,
     Construction,
     generate_construction_id,
+    generate_deterministic_construction_id,
     generate_slot_id,
     generate_morphology_rule_id,
 )
@@ -85,6 +86,7 @@ __all__ = [
     "ConstructionRealizerConfig",
     # Utility functions
     "generate_construction_id",
+    "generate_deterministic_construction_id",
     "generate_slot_id",
     "generate_morphology_rule_id",
     # MVCS

@@ -115,6 +115,21 @@ class ImplicitFeedback:
 
         return max(-1.0, min(1.0, score))
 
+    def to_dict(self) -> dict:
+        """
+        Convert to dictionary for JSON serialization.
+
+        Returns:
+            dict: ImplicitFeedback fields as dict
+        """
+        return {
+            "conversation_continued": self.conversation_continued,
+            "user_rephrased": self.user_rephrased,
+            "user_thanked": self.user_thanked,
+            "user_complained": self.user_complained,
+            "session_ended_abruptly": self.session_ended_abruptly,
+        }
+
 
 @dataclass
 class EpisodeLog:

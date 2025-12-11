@@ -405,8 +405,32 @@ class Construction:
 
 
 def generate_construction_id() -> str:
-    """Generate unique construction ID."""
+    """
+    Generate unique construction ID (random UUID-based).
+
+    Note: For stable, deterministic IDs, use generate_deterministic_construction_id()
+    with a stable name (e.g., mvcs_name). This function generates random IDs and
+    should only be used for dynamically learned constructions.
+    """
     return f"cons_{uuid.uuid4().hex[:12]}"
+
+
+def generate_deterministic_construction_id(name: str) -> str:
+    """
+    Generate deterministic construction ID from a stable name.
+
+    This produces the same ID for the same name across runs,
+    which is essential for tracking construction usage in EpisodeLogs.
+
+    Args:
+        name: Stable name (e.g., mvcs_name like "greet_simple")
+
+    Returns:
+        Deterministic construction ID (e.g., "cons_greet_simple")
+    """
+    # Sanitize: lowercase, replace spaces with underscores
+    sanitized = name.lower().replace(" ", "_").replace("-", "_")
+    return f"cons_{sanitized}"
 
 
 def generate_slot_id() -> str:

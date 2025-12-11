@@ -32,6 +32,7 @@ from .types import (
     Slot,
     SlotType,
     generate_construction_id,
+    generate_deterministic_construction_id,
     generate_slot_id,
 )
 
@@ -276,78 +277,112 @@ class MVCSLoader:
     # Construction Factory Methods
     # =========================================================================
 
+    def _create_mvcs_construction(
+        self,
+        mvcs_name: str,
+        category: MVCSCategory,
+        template: str,
+        dialogue_act: str,
+        slots: Dict = None,
+        effects: List[str] = None,
+        semantic_roles: Dict = None,
+        tone: str = "neutral",
+        formality: float = 0.5,
+        preconditions: List[str] = None,
+        illocutionary_force: str = None,
+        values_alignment: List[str] = None,
+    ) -> Construction:
+        """
+        Helper to create MVCS construction with deterministic ID.
+
+        Uses mvcs_name to generate stable, reproducible construction IDs.
+        This ensures the same construction has the same ID across runs.
+
+        Args:
+            mvcs_name: Unique name for this construction (e.g., "greet_simple")
+            category: MVCSCategory enum
+            template: Template string
+            dialogue_act: DialogueAct value
+            slots: Slot definitions (optional)
+            effects: Effect list (optional)
+            semantic_roles: Semantic role mappings (optional)
+            tone: Tone value
+            formality: Formality score 0.0-1.0
+            preconditions: Precondition list (optional)
+            illocutionary_force: Illocutionary force (optional)
+            values_alignment: Value alignment list (optional)
+
+        Returns:
+            Construction with deterministic ID
+        """
+        extra_data = {
+            "mvcs_category": category.value,
+            "mvcs_name": mvcs_name,
+            "is_mvcs": True,
+            "tone": tone,
+            "formality": formality,
+        }
+        if values_alignment:
+            extra_data["values_alignment"] = values_alignment
+
+        meaning = ConstructionMeaning(
+            dialogue_act=dialogue_act,
+            effects=effects or [],
+            semantic_roles=semantic_roles or {},
+            preconditions=preconditions or [],
+        )
+        if illocutionary_force:
+            meaning.illocutionary_force = illocutionary_force
+
+        return Construction(
+            id=generate_deterministic_construction_id(mvcs_name),
+            level=ConstructionLevel.SURFACE,
+            form=ConstructionForm(
+                template=template,
+                slots=slots or {}
+            ),
+            meaning=meaning,
+            confidence=self.config.default_confidence,
+            source=self.config.source,
+            extra_data=extra_data
+        )
+
     def _create_greet_constructions(self) -> List[Construction]:
         """GREET - Selamlama construction'lari olustur."""
         constructions = []
 
         # 1. Basit merhaba
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Merhaba!",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="greet",
-                effects=["user_greeted"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.GREET.value,
-                "mvcs_name": "greet_simple",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="greet_simple",
+            category=MVCSCategory.GREET,
+            template="Merhaba!",
+            dialogue_act="greet",
+            effects=["user_greeted"],
+            tone="friendly",
+            formality=0.5,
         ))
 
         # 2. Samimi selam
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Selam, nasilsin?",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="greet",
-                    effects=["user_greeted", "wellbeing_asked"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.GREET.value,
-                    "mvcs_name": "greet_casual",
-                    "is_mvcs": True,
-                    "tone": "casual",
-                    "formality": 0.2,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="greet_casual",
+                category=MVCSCategory.GREET,
+                template="Selam, nasilsin?",
+                dialogue_act="greet",
+                effects=["user_greeted", "wellbeing_asked"],
+                tone="casual",
+                formality=0.2,
             ))
 
         # 3. Yardim teklifi ile selamlama
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Merhaba! Size nasil yardimci olabilirim?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="greet",
-                effects=["user_greeted", "help_offered"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.GREET.value,
-                "mvcs_name": "greet_with_offer",
-                "is_mvcs": True,
-                "tone": "helpful",
-                "formality": 0.6,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="greet_with_offer",
+            category=MVCSCategory.GREET,
+            template="Merhaba! Size nasil yardimci olabilirim?",
+            dialogue_act="greet",
+            effects=["user_greeted", "help_offered"],
+            tone="helpful",
+            formality=0.6,
         ))
 
         return constructions
@@ -357,74 +392,38 @@ class MVCSLoader:
         constructions = []
 
         # 1. Temel tanitim
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Ben UEM, yapay zeka asistanizim.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                effects=["self_introduced"],
-                semantic_roles={"agent": "self", "identity": "ai_assistant"}
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SELF_INTRO.value,
-                "mvcs_name": "self_intro_basic",
-                "is_mvcs": True,
-                "tone": "neutral",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="self_intro_basic",
+            category=MVCSCategory.SELF_INTRO,
+            template="Ben UEM, yapay zeka asistanizim.",
+            dialogue_act="inform",
+            effects=["self_introduced"],
+            semantic_roles={"agent": "self", "identity": "ai_assistant"},
+            tone="neutral",
+            formality=0.5,
         ))
 
         # 2. Yardim vurgulu tanitim
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Ben bir yapay zeka asistaniyim, size yardimci olmak icin buradayim.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                effects=["self_introduced", "purpose_stated"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SELF_INTRO.value,
-                "mvcs_name": "self_intro_helpful",
-                "is_mvcs": True,
-                "tone": "helpful",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="self_intro_helpful",
+            category=MVCSCategory.SELF_INTRO,
+            template="Ben bir yapay zeka asistaniyim, size yardimci olmak icin buradayim.",
+            dialogue_act="inform",
+            effects=["self_introduced", "purpose_stated"],
+            tone="helpful",
+            formality=0.5,
         ))
 
         # 3. Kisa tanitim
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Ben UEM, yapay zeka destekli bir asistan.",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="inform",
-                    effects=["self_introduced"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.SELF_INTRO.value,
-                    "mvcs_name": "self_intro_short",
-                    "is_mvcs": True,
-                    "tone": "neutral",
-                    "formality": 0.4,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="self_intro_short",
+                category=MVCSCategory.SELF_INTRO,
+                template="Ben UEM, yapay zeka destekli bir asistan.",
+                dialogue_act="inform",
+                effects=["self_introduced"],
+                tone="neutral",
+                formality=0.4,
             ))
 
         return constructions
@@ -434,73 +433,37 @@ class MVCSLoader:
         constructions = []
 
         # 1. Temel cevap
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Iyiyim, tesekkur ederim! Siz nasilsiniz?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                effects=["wellbeing_answered", "wellbeing_asked"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.ASK_WELLBEING.value,
-                "mvcs_name": "wellbeing_reciprocal",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="wellbeing_reciprocal",
+            category=MVCSCategory.ASK_WELLBEING,
+            template="Iyiyim, tesekkur ederim! Siz nasilsiniz?",
+            dialogue_act="inform",
+            effects=["wellbeing_answered", "wellbeing_asked"],
+            tone="friendly",
+            formality=0.5,
         ))
 
         # 2. Yardim yonlendirmeli
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Tesekkurler, iyiyim. Size nasil yardimci olabilirim?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                effects=["wellbeing_answered", "help_offered"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.ASK_WELLBEING.value,
-                "mvcs_name": "wellbeing_with_offer",
-                "is_mvcs": True,
-                "tone": "helpful",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="wellbeing_with_offer",
+            category=MVCSCategory.ASK_WELLBEING,
+            template="Tesekkurler, iyiyim. Size nasil yardimci olabilirim?",
+            dialogue_act="inform",
+            effects=["wellbeing_answered", "help_offered"],
+            tone="helpful",
+            formality=0.5,
         ))
 
         # 3. Samimi cevap
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Gayet iyiyim, sordugun icin tesekkurler! Sen nasil hissediyorsun?",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="inform",
-                    effects=["wellbeing_answered", "wellbeing_asked"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.ASK_WELLBEING.value,
-                    "mvcs_name": "wellbeing_casual",
-                    "is_mvcs": True,
-                    "tone": "casual",
-                    "formality": 0.3,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="wellbeing_casual",
+                category=MVCSCategory.ASK_WELLBEING,
+                template="Gayet iyiyim, sordugun icin tesekkurler! Sen nasil hissediyorsun?",
+                dialogue_act="inform",
+                effects=["wellbeing_answered", "wellbeing_asked"],
+                tone="casual",
+                formality=0.3,
             ))
 
         return constructions
@@ -510,105 +473,72 @@ class MVCSLoader:
         constructions = []
 
         # 1. Konu hakkinda bilgi
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="{konu} hakkinda bilgi vereyim.",
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="inform_about_topic",
+            category=MVCSCategory.SIMPLE_INFORM,
+            template="{konu} hakkinda bilgi vereyim.",
+            dialogue_act="inform",
+            slots={
+                "konu": Slot(
+                    id=generate_slot_id(),
+                    name="konu",
+                    slot_type=SlotType.ENTITY,
+                    required=True,
+                    description="Bilgi verilecek konu"
+                )
+            },
+            semantic_roles={"theme": "konu"},
+            effects=["information_provided"],
+            tone="neutral",
+            formality=0.5,
+        ))
+
+        # 2. Direkt bilgi
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="inform_direct",
+            category=MVCSCategory.SIMPLE_INFORM,
+            template="{bilgi}",
+            dialogue_act="inform",
+            slots={
+                "bilgi": Slot(
+                    id=generate_slot_id(),
+                    name="bilgi",
+                    slot_type=SlotType.ENTITY,
+                    required=True,
+                    description="Verilecek bilgi"
+                )
+            },
+            semantic_roles={"content": "bilgi"},
+            effects=["information_provided"],
+            tone="neutral",
+            formality=0.5,
+        ))
+
+        # 3. Aciklama ile bilgi
+        if self.config.include_variations:
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="inform_with_explanation",
+                category=MVCSCategory.SIMPLE_INFORM,
+                template="{konu} su sekilde calisiyor: {aciklama}",
+                dialogue_act="explain",
                 slots={
                     "konu": Slot(
                         id=generate_slot_id(),
                         name="konu",
                         slot_type=SlotType.ENTITY,
-                        required=True,
-                        description="Bilgi verilecek konu"
-                    )
-                }
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                semantic_roles={"theme": "konu"},
-                effects=["information_provided"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SIMPLE_INFORM.value,
-                "mvcs_name": "inform_about_topic",
-                "is_mvcs": True,
-                "tone": "neutral",
-                "formality": 0.5,
-            }
-        ))
-
-        # 2. Direkt bilgi
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="{bilgi}",
-                slots={
-                    "bilgi": Slot(
+                        required=True
+                    ),
+                    "aciklama": Slot(
                         id=generate_slot_id(),
-                        name="bilgi",
+                        name="aciklama",
                         slot_type=SlotType.ENTITY,
-                        required=True,
-                        description="Verilecek bilgi"
+                        required=True
                     )
-                }
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="inform",
-                semantic_roles={"content": "bilgi"},
-                effects=["information_provided"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SIMPLE_INFORM.value,
-                "mvcs_name": "inform_direct",
-                "is_mvcs": True,
-                "tone": "neutral",
-                "formality": 0.5,
-            }
-        ))
-
-        # 3. Aciklama ile bilgi
-        if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="{konu} su sekilde calisiyor: {aciklama}",
-                    slots={
-                        "konu": Slot(
-                            id=generate_slot_id(),
-                            name="konu",
-                            slot_type=SlotType.ENTITY,
-                            required=True
-                        ),
-                        "aciklama": Slot(
-                            id=generate_slot_id(),
-                            name="aciklama",
-                            slot_type=SlotType.ENTITY,
-                            required=True
-                        )
-                    }
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="explain",
-                    semantic_roles={"theme": "konu", "content": "aciklama"},
-                    effects=["information_provided", "explanation_given"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.SIMPLE_INFORM.value,
-                    "mvcs_name": "inform_with_explanation",
-                    "is_mvcs": True,
-                    "tone": "educational",
-                    "formality": 0.5,
-                }
+                },
+                semantic_roles={"theme": "konu", "content": "aciklama"},
+                effects=["information_provided", "explanation_given"],
+                tone="educational",
+                formality=0.5,
             ))
 
         return constructions
@@ -618,105 +548,58 @@ class MVCSLoader:
         constructions = []
 
         # 1. Anlama ifadesi
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Sizi anliyorum, bu zor bir durum.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="empathize",
-                effects=["empathy_expressed", "user_validated"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.EMPATHIZE_BASIC.value,
-                "mvcs_name": "empathy_understand",
-                "is_mvcs": True,
-                "tone": "empathic",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_understand",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Sizi anliyorum, bu zor bir durum.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "user_validated"],
+            tone="empathic",
+            formality=0.5,
         ))
 
         # 2. Duygu dogrulama
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Duygularinizi anliyorum.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="empathize",
-                effects=["empathy_expressed"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.EMPATHIZE_BASIC.value,
-                "mvcs_name": "empathy_feelings",
-                "is_mvcs": True,
-                "tone": "empathic",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_feelings",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Duygularinizi anliyorum.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed"],
+            tone="empathic",
+            formality=0.5,
         ))
 
         # 3. Normallestirme
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Bu durumda kendinizi boyle hissetmeniz normal.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="empathize",
-                effects=["empathy_expressed", "feeling_normalized"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.EMPATHIZE_BASIC.value,
-                "mvcs_name": "empathy_normalize",
-                "is_mvcs": True,
-                "tone": "supportive",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_normalize",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Bu durumda kendinizi boyle hissetmeniz normal.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "feeling_normalized"],
+            tone="supportive",
+            formality=0.5,
         ))
 
         # 4. Spesifik duygu empatisi
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="{duygu} hissetmen cok anlasilir.",
-                    slots={
-                        "duygu": Slot(
-                            id=generate_slot_id(),
-                            name="duygu",
-                            slot_type=SlotType.ENTITY,
-                            required=True,
-                            description="Kullanicinin hissettigi duygu"
-                        )
-                    }
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="empathize",
-                    semantic_roles={"experiencer": "user", "emotion": "duygu"},
-                    effects=["empathy_expressed", "feeling_validated"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.EMPATHIZE_BASIC.value,
-                    "mvcs_name": "empathy_specific",
-                    "is_mvcs": True,
-                    "tone": "empathic",
-                    "formality": 0.4,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="empathy_specific",
+                category=MVCSCategory.EMPATHIZE_BASIC,
+                template="{duygu} hissetmen cok anlasilir.",
+                dialogue_act="empathize",
+                slots={
+                    "duygu": Slot(
+                        id=generate_slot_id(),
+                        name="duygu",
+                        slot_type=SlotType.ENTITY,
+                        required=True,
+                        description="Kullanicinin hissettigi duygu"
+                    )
+                },
+                semantic_roles={"experiencer": "user", "emotion": "duygu"},
+                effects=["empathy_expressed", "feeling_validated"],
+                tone="empathic",
+                formality=0.4,
             ))
 
         return constructions
@@ -726,85 +609,50 @@ class MVCSLoader:
         constructions = []
 
         # 1. Basit netlestirme
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Biraz daha aciklar misiniz?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="ask",
-                effects=["clarification_requested"],
-                illocutionary_force="question"
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.CLARIFY_REQUEST.value,
-                "mvcs_name": "clarify_simple",
-                "is_mvcs": True,
-                "tone": "polite",
-                "formality": 0.6,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="clarify_simple",
+            category=MVCSCategory.CLARIFY_REQUEST,
+            template="Biraz daha aciklar misiniz?",
+            dialogue_act="ask",
+            effects=["clarification_requested"],
+            illocutionary_force="question",
+            tone="polite",
+            formality=0.6,
         ))
 
         # 2. Detay isteme
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Ne demek istediginizi tam anlayamadim, detay verebilir misiniz?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="ask",
-                effects=["clarification_requested", "confusion_expressed"],
-                illocutionary_force="question"
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.CLARIFY_REQUEST.value,
-                "mvcs_name": "clarify_confused",
-                "is_mvcs": True,
-                "tone": "honest",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="clarify_confused",
+            category=MVCSCategory.CLARIFY_REQUEST,
+            template="Ne demek istediginizi tam anlayamadim, detay verebilir misiniz?",
+            dialogue_act="ask",
+            effects=["clarification_requested", "confusion_expressed"],
+            illocutionary_force="question",
+            tone="honest",
+            formality=0.5,
         ))
 
         # 3. Spesifik netlestirme
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="{konu} hakkinda daha fazla bilgi verebilir misiniz?",
-                    slots={
-                        "konu": Slot(
-                            id=generate_slot_id(),
-                            name="konu",
-                            slot_type=SlotType.ENTITY,
-                            required=True,
-                            description="Netlestirme istenen konu"
-                        )
-                    }
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="ask",
-                    semantic_roles={"theme": "konu"},
-                    effects=["clarification_requested"],
-                    illocutionary_force="question"
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.CLARIFY_REQUEST.value,
-                    "mvcs_name": "clarify_specific",
-                    "is_mvcs": True,
-                    "tone": "polite",
-                    "formality": 0.6,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="clarify_specific",
+                category=MVCSCategory.CLARIFY_REQUEST,
+                template="{konu} hakkinda daha fazla bilgi verebilir misiniz?",
+                dialogue_act="ask",
+                slots={
+                    "konu": Slot(
+                        id=generate_slot_id(),
+                        name="konu",
+                        slot_type=SlotType.ENTITY,
+                        required=True,
+                        description="Netlestirme istenen konu"
+                    )
+                },
+                semantic_roles={"theme": "konu"},
+                effects=["clarification_requested"],
+                illocutionary_force="question",
+                tone="polite",
+                formality=0.6,
             ))
 
         return constructions
@@ -814,121 +662,75 @@ class MVCSLoader:
         constructions = []
 
         # 1. Basit red
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Bu konuda size yardimci olamiyorum.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="refuse",
-                effects=["request_declined"],
-                preconditions=["request_is_harmful"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SAFE_REFUSAL.value,
-                "mvcs_name": "refuse_simple",
-                "is_mvcs": True,
-                "tone": "polite",
-                "formality": 0.6,
-                "values_alignment": ["non_maleficence"],
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="refuse_simple",
+            category=MVCSCategory.SAFE_REFUSAL,
+            template="Bu konuda size yardimci olamiyorum.",
+            dialogue_act="refuse",
+            effects=["request_declined"],
+            preconditions=["request_is_harmful"],
+            tone="polite",
+            formality=0.6,
+            values_alignment=["non_maleficence"],
         ))
 
         # 2. Alternatif oneren red
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Bu isteginizi yerine getiremiyorum, ancak baska bir konuda yardimci olabilirim.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="refuse",
-                effects=["request_declined", "alternative_offered"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SAFE_REFUSAL.value,
-                "mvcs_name": "refuse_with_alternative",
-                "is_mvcs": True,
-                "tone": "helpful",
-                "formality": 0.6,
-                "values_alignment": ["non_maleficence", "autonomy_respect"],
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="refuse_with_alternative",
+            category=MVCSCategory.SAFE_REFUSAL,
+            template="Bu isteginizi yerine getiremiyorum, ancak baska bir konuda yardimci olabilirim.",
+            dialogue_act="refuse",
+            effects=["request_declined", "alternative_offered"],
+            tone="helpful",
+            formality=0.6,
+            values_alignment=["non_maleficence", "autonomy_respect"],
         ))
 
         # 3. Aciklamali red
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Uzgunum, {neden} nedeniyle bu konuda yardimci olamam.",
-                    slots={
-                        "neden": Slot(
-                            id=generate_slot_id(),
-                            name="neden",
-                            slot_type=SlotType.REASON,
-                            required=True,
-                            default="etik kurallarim geregi",
-                            description="Reddetme nedeni"
-                        )
-                    }
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="refuse",
-                    semantic_roles={"reason": "neden"},
-                    effects=["request_declined", "reason_explained"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.SAFE_REFUSAL.value,
-                    "mvcs_name": "refuse_with_reason",
-                    "is_mvcs": True,
-                    "tone": "apologetic",
-                    "formality": 0.6,
-                    "values_alignment": ["transparency", "non_maleficence"],
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="refuse_with_reason",
+                category=MVCSCategory.SAFE_REFUSAL,
+                template="Uzgunum, {neden} nedeniyle bu konuda yardimci olamam.",
+                dialogue_act="refuse",
+                slots={
+                    "neden": Slot(
+                        id=generate_slot_id(),
+                        name="neden",
+                        slot_type=SlotType.REASON,
+                        required=True,
+                        default="etik kurallarim geregi",
+                        description="Reddetme nedeni"
+                    )
+                },
+                semantic_roles={"reason": "neden"},
+                effects=["request_declined", "reason_explained"],
+                tone="apologetic",
+                formality=0.6,
+                values_alignment=["transparency", "non_maleficence"],
             ))
 
         # 4. Sinir belirten red
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Bu benim yeteneklerimin disinda, ancak {alternatif} onerebilirim.",
-                slots={
-                    "alternatif": Slot(
-                        id=generate_slot_id(),
-                        name="alternatif",
-                        slot_type=SlotType.ENTITY,
-                        required=False,
-                        default="baska konularda yardim",
-                        description="Onerilebilecek alternatif"
-                    )
-                }
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="refuse",
-                semantic_roles={"alternative": "alternatif"},
-                effects=["limitation_expressed", "alternative_offered"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.SAFE_REFUSAL.value,
-                "mvcs_name": "refuse_limitation",
-                "is_mvcs": True,
-                "tone": "honest",
-                "formality": 0.5,
-                "values_alignment": ["transparency"],
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="refuse_limitation",
+            category=MVCSCategory.SAFE_REFUSAL,
+            template="Bu benim yeteneklerimin disinda, ancak {alternatif} onerebilirim.",
+            dialogue_act="refuse",
+            slots={
+                "alternatif": Slot(
+                    id=generate_slot_id(),
+                    name="alternatif",
+                    slot_type=SlotType.ENTITY,
+                    required=False,
+                    default="baska konularda yardim",
+                    description="Onerilebilecek alternatif"
+                )
+            },
+            semantic_roles={"alternative": "alternatif"},
+            effects=["limitation_expressed", "alternative_offered"],
+            tone="honest",
+            formality=0.5,
+            values_alignment=["transparency"],
         ))
 
         return constructions
@@ -938,73 +740,37 @@ class MVCSLoader:
         constructions = []
 
         # 1. İyi + teşekkür + geri sorma
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Iyiyim, tesekkur ederim! Siz nasilsiniz?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="respond_wellbeing",
-                effects=["wellbeing_shared", "reciprocal_interest_shown"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
-                "mvcs_name": "wellbeing_good_reciprocal",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="wellbeing_good_reciprocal",
+            category=MVCSCategory.RESPOND_WELLBEING,
+            template="Iyiyim, tesekkur ederim! Siz nasilsiniz?",
+            dialogue_act="respond_wellbeing",
+            effects=["wellbeing_shared", "reciprocal_interest_shown"],
+            tone="friendly",
+            formality=0.5,
         ))
 
         # 2. İyi + yardım teklifi
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Tesekkurler, ben de iyiyim. Size nasil yardimci olabilirim?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="respond_wellbeing",
-                effects=["wellbeing_shared", "help_offered"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
-                "mvcs_name": "wellbeing_good_help",
-                "is_mvcs": True,
-                "tone": "helpful",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="wellbeing_good_help",
+            category=MVCSCategory.RESPOND_WELLBEING,
+            template="Tesekkurler, ben de iyiyim. Size nasil yardimci olabilirim?",
+            dialogue_act="respond_wellbeing",
+            effects=["wellbeing_shared", "help_offered"],
+            tone="helpful",
+            formality=0.5,
         ))
 
         # 3. Fena değil + teşekkür
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Fena degilim, sordugunuz icin tesekkurler.",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="respond_wellbeing",
-                    effects=["wellbeing_shared"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.RESPOND_WELLBEING.value,
-                    "mvcs_name": "wellbeing_okay",
-                    "is_mvcs": True,
-                    "tone": "casual",
-                    "formality": 0.3,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="wellbeing_okay",
+                category=MVCSCategory.RESPOND_WELLBEING,
+                template="Fena degilim, sordugunuz icin tesekkurler.",
+                dialogue_act="respond_wellbeing",
+                effects=["wellbeing_shared"],
+                tone="casual",
+                formality=0.3,
             ))
 
         return constructions
@@ -1014,73 +780,37 @@ class MVCSLoader:
         constructions = []
 
         # 1. Rica ederim (basit)
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Rica ederim!",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="receive_thanks",
-                effects=["thanks_acknowledged"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
-                "mvcs_name": "thanks_simple",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.4,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="thanks_simple",
+            category=MVCSCategory.RECEIVE_THANKS,
+            template="Rica ederim!",
+            dialogue_act="receive_thanks",
+            effects=["thanks_acknowledged"],
+            tone="friendly",
+            formality=0.4,
         ))
 
         # 2. Memnun oldum
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Ne demek, memnun oldum.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="receive_thanks",
-                effects=["thanks_acknowledged", "pleasure_expressed"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
-                "mvcs_name": "thanks_pleasure",
-                "is_mvcs": True,
-                "tone": "warm",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="thanks_pleasure",
+            category=MVCSCategory.RECEIVE_THANKS,
+            template="Ne demek, memnun oldum.",
+            dialogue_act="receive_thanks",
+            effects=["thanks_acknowledged", "pleasure_expressed"],
+            tone="warm",
+            formality=0.5,
         ))
 
         # 3. Rica ederim + yardım teklifi
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Rica ederim, baska nasil yardimci olabilirim?",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="receive_thanks",
-                    effects=["thanks_acknowledged", "continued_help_offered"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.RECEIVE_THANKS.value,
-                    "mvcs_name": "thanks_continue_help",
-                    "is_mvcs": True,
-                    "tone": "helpful",
-                    "formality": 0.5,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="thanks_continue_help",
+                category=MVCSCategory.RECEIVE_THANKS,
+                template="Rica ederim, baska nasil yardimci olabilirim?",
+                dialogue_act="receive_thanks",
+                effects=["thanks_acknowledged", "continued_help_offered"],
+                tone="helpful",
+                formality=0.5,
             ))
 
         return constructions
@@ -1090,73 +820,37 @@ class MVCSLoader:
         constructions = []
 
         # 1. Fena değilim + sen
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Fena degilim, sen nasilsin?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="light_chitchat",
-                effects=["chitchat_engaged", "reciprocal_question"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
-                "mvcs_name": "chitchat_casual_reciprocal",
-                "is_mvcs": True,
-                "tone": "casual",
-                "formality": 0.2,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="chitchat_casual_reciprocal",
+            category=MVCSCategory.LIGHT_CHITCHAT,
+            template="Fena degilim, sen nasilsin?",
+            dialogue_act="light_chitchat",
+            effects=["chitchat_engaged", "reciprocal_question"],
+            tone="casual",
+            formality=0.2,
         ))
 
         # 2. İyidir + neler oluyor
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Iyidir, neler oluyor?",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="light_chitchat",
-                effects=["chitchat_engaged", "interest_shown"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
-                "mvcs_name": "chitchat_whats_up",
-                "is_mvcs": True,
-                "tone": "casual",
-                "formality": 0.2,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="chitchat_whats_up",
+            category=MVCSCategory.LIGHT_CHITCHAT,
+            template="Iyidir, neler oluyor?",
+            dialogue_act="light_chitchat",
+            effects=["chitchat_engaged", "interest_shown"],
+            tone="casual",
+            formality=0.2,
         ))
 
         # 3. Buradayım + yardım
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Buradayim, hazirim. Nasil yardimci olabilirim?",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="light_chitchat",
-                    effects=["presence_confirmed", "help_offered"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.LIGHT_CHITCHAT.value,
-                    "mvcs_name": "chitchat_present_ready",
-                    "is_mvcs": True,
-                    "tone": "friendly",
-                    "formality": 0.4,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="chitchat_present_ready",
+                category=MVCSCategory.LIGHT_CHITCHAT,
+                template="Buradayim, hazirim. Nasil yardimci olabilirim?",
+                dialogue_act="light_chitchat",
+                effects=["presence_confirmed", "help_offered"],
+                tone="friendly",
+                formality=0.4,
             ))
 
         return constructions
@@ -1166,73 +860,37 @@ class MVCSLoader:
         constructions = []
 
         # 1. İyi olmanıza sevindim
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Iyi olmaniza sevindim!",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="acknowledge_positive",
-                effects=["positive_acknowledged", "joy_shared"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
-                "mvcs_name": "positive_glad",
-                "is_mvcs": True,
-                "tone": "warm",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="positive_glad",
+            category=MVCSCategory.ACKNOWLEDGE_POSITIVE,
+            template="Iyi olmaniza sevindim!",
+            dialogue_act="acknowledge_positive",
+            effects=["positive_acknowledged", "joy_shared"],
+            tone="warm",
+            formality=0.5,
         ))
 
         # 2. Güzel + duymak iyi geldi
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Guzel, bunu duymak iyi geldi.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="acknowledge_positive",
-                effects=["positive_acknowledged"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
-                "mvcs_name": "positive_nice_to_hear",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.4,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="positive_nice_to_hear",
+            category=MVCSCategory.ACKNOWLEDGE_POSITIVE,
+            template="Guzel, bunu duymak iyi geldi.",
+            dialogue_act="acknowledge_positive",
+            effects=["positive_acknowledged"],
+            tone="friendly",
+            formality=0.4,
         ))
 
         # 3. Ne güzel + mutlu oldum
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Ne guzel, mutlu oldum.",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="acknowledge_positive",
-                    effects=["positive_acknowledged", "happiness_expressed"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.ACKNOWLEDGE_POSITIVE.value,
-                    "mvcs_name": "positive_happy",
-                    "is_mvcs": True,
-                    "tone": "enthusiastic",
-                    "formality": 0.3,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="positive_happy",
+                category=MVCSCategory.ACKNOWLEDGE_POSITIVE,
+                template="Ne guzel, mutlu oldum.",
+                dialogue_act="acknowledge_positive",
+                effects=["positive_acknowledged", "happiness_expressed"],
+                tone="enthusiastic",
+                formality=0.3,
             ))
 
         return constructions
@@ -1242,97 +900,49 @@ class MVCSLoader:
         constructions = []
 
         # 1. Görüşürüz, iyi günler
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Gorusuruz, iyi gunler!",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="close_conversation",
-                effects=["farewell", "well_wishes"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
-                "mvcs_name": "farewell_see_you",
-                "is_mvcs": True,
-                "tone": "friendly",
-                "formality": 0.5,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="farewell_see_you",
+            category=MVCSCategory.CLOSE_CONVERSATION,
+            template="Gorusuruz, iyi gunler!",
+            dialogue_act="farewell",
+            effects=["farewell", "well_wishes"],
+            tone="friendly",
+            formality=0.5,
         ))
 
         # 2. Hoşça kal, tekrar beklerim
-        constructions.append(Construction(
-            id=generate_construction_id(),
-            level=ConstructionLevel.SURFACE,
-            form=ConstructionForm(
-                template="Hosca kal, tekrar beklerim.",
-                slots={}
-            ),
-            meaning=ConstructionMeaning(
-                dialogue_act="close_conversation",
-                effects=["farewell", "invitation_to_return"]
-            ),
-            confidence=self.config.default_confidence,
-            source=self.config.source,
-            extra_data={
-                "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
-                "mvcs_name": "farewell_see_you_again",
-                "is_mvcs": True,
-                "tone": "warm",
-                "formality": 0.4,
-            }
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="farewell_see_you_again",
+            category=MVCSCategory.CLOSE_CONVERSATION,
+            template="Hosca kal, tekrar beklerim.",
+            dialogue_act="farewell",
+            effects=["farewell", "invitation_to_return"],
+            tone="warm",
+            formality=0.4,
         ))
 
         # 3. Kendine iyi bak, görüşmek üzere
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Kendine iyi bak, gorusmek uzere!",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="close_conversation",
-                    effects=["farewell", "care_expressed"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
-                    "mvcs_name": "farewell_take_care",
-                    "is_mvcs": True,
-                    "tone": "caring",
-                    "formality": 0.3,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="farewell_take_care",
+                category=MVCSCategory.CLOSE_CONVERSATION,
+                template="Kendine iyi bak, gorusmek uzere!",
+                dialogue_act="farewell",
+                effects=["farewell", "care_expressed"],
+                tone="caring",
+                formality=0.3,
             ))
 
         # 4. İyi günler, her zaman yazabilirsin
         if self.config.include_variations:
-            constructions.append(Construction(
-                id=generate_construction_id(),
-                level=ConstructionLevel.SURFACE,
-                form=ConstructionForm(
-                    template="Iyi gunler, her zaman yazabilirsin.",
-                    slots={}
-                ),
-                meaning=ConstructionMeaning(
-                    dialogue_act="close_conversation",
-                    effects=["farewell", "availability_expressed"]
-                ),
-                confidence=self.config.default_confidence,
-                source=self.config.source,
-                extra_data={
-                    "mvcs_category": MVCSCategory.CLOSE_CONVERSATION.value,
-                    "mvcs_name": "farewell_always_available",
-                    "is_mvcs": True,
-                    "tone": "supportive",
-                    "formality": 0.4,
-                }
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="farewell_always_available",
+                category=MVCSCategory.CLOSE_CONVERSATION,
+                template="Iyi gunler, her zaman yazabilirsin.",
+                dialogue_act="farewell",
+                effects=["farewell", "availability_expressed"],
+                tone="supportive",
+                formality=0.4,
             ))
 
         return constructions

@@ -38,9 +38,18 @@ try:
         JSONLEpisodeStore,
         PatternAnalyzer,
     )
+    from core.learning.episode_types import ImplicitFeedback
     EPISODE_LOGGING_AVAILABLE = True
 except ImportError:
     EPISODE_LOGGING_AVAILABLE = False
+
+# Implicit feedback detection patterns
+THANK_PATTERNS = [
+    "teşekkür", "tesekkur", "thanks", "thank you",
+    "sağol", "sagol", "sağ ol", "sag ol",
+    "eyvallah", "eyv", "saol", "çok iyi",
+    "teşekkürler", "tesekkurler", "mersi"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +120,11 @@ class CLIChat:
             self._episode_store = JSONLEpisodeStore("data/episodes.jsonl")
             logger.info("Episode logging enabled (data/episodes.jsonl)")
 
+        # Implicit feedback tracking
+        self._last_episode_id: Optional[str] = None
+        self._last_user_intent: Optional[str] = None
+        self._second_last_user_intent: Optional[str] = None
+
         logger.info(f"CLIChat initialized (user={user_id}, debug={show_debug})")
 
     # ===================================================================
@@ -162,7 +176,11 @@ class CLIChat:
         Stop chat loop.
 
         Chat dongusunu durdurur ve session'i kapatir.
+        Also marks conversation_continued for the last episode.
         """
+        # Mark conversation_continued for last episode (session ended normally)
+        self._mark_conversation_continued()
+
         self._running = False
         if self.agent:
             self.agent.end_session(self.user_id)
@@ -636,6 +654,100 @@ class CLIChat:
         print("---------------------------")
 
     # ===================================================================
+    # IMPLICIT FEEDBACK DETECTION
+    # ===================================================================
+
+    def _detect_user_thanked(self, message: str) -> bool:
+        """
+        Detect if user message contains thanks.
+
+        Args:
+            message: User message text
+
+        Returns:
+            True if message contains thank patterns
+        """
+        message_lower = message.lower()
+        return any(pattern in message_lower for pattern in THANK_PATTERNS)
+
+    def _detect_user_rephrased(self, current_intent: Optional[str]) -> bool:
+        """
+        Detect if user rephrased their message (same intent twice in a row).
+
+        This suggests the previous response was not understood/helpful.
+
+        Args:
+            current_intent: Current message's primary intent
+
+        Returns:
+            True if current intent matches the previous intent
+        """
+        if current_intent and self._last_user_intent:
+            return current_intent == self._last_user_intent
+        return False
+
+    def _update_implicit_feedback_for_previous(self, message: str, current_intent: Optional[str]) -> None:
+        """
+        Update implicit feedback for the previous episode based on current message.
+
+        Called BEFORE processing the current message.
+
+        Args:
+            message: Current user message
+            current_intent: Current message's detected intent (if available)
+        """
+        if not self._last_episode_id or not self._episode_logger:
+            return
+
+        implicit = ImplicitFeedback()
+
+        # Check if user thanked (positive signal)
+        if self._detect_user_thanked(message):
+            implicit.user_thanked = True
+            logger.debug(f"Detected user_thanked for episode {self._last_episode_id}")
+
+        # Check if user rephrased (negative signal - not understood)
+        if self._detect_user_rephrased(current_intent):
+            implicit.user_rephrased = True
+            logger.debug(f"Detected user_rephrased for episode {self._last_episode_id}")
+
+        # conversation_continued is set at session end
+        # session_ended_abruptly: TODO - V1'de implement edilmeyecek
+
+        # Only update if any signal detected
+        if implicit.user_thanked or implicit.user_rephrased:
+            self._episode_logger.add_feedback(
+                episode_id=self._last_episode_id,
+                implicit=implicit
+            )
+
+    def _mark_conversation_continued(self) -> None:
+        """
+        Mark the last episode's conversation_continued = True.
+
+        Called at session end (before quit) if session ended normally.
+        """
+        if not self._last_episode_id or not self._episode_logger:
+            return
+
+        implicit = ImplicitFeedback(conversation_continued=True)
+        self._episode_logger.add_feedback(
+            episode_id=self._last_episode_id,
+            implicit=implicit
+        )
+        logger.debug(f"Marked conversation_continued for episode {self._last_episode_id}")
+
+    def _track_intent_for_rephrase_detection(self, intent: Optional[str]) -> None:
+        """
+        Track intents for rephrase detection.
+
+        Args:
+            intent: Current message's primary intent
+        """
+        self._second_last_user_intent = self._last_user_intent
+        self._last_user_intent = intent
+
+    # ===================================================================
     # MESSAGE HANDLING
     # ===================================================================
 
@@ -643,11 +755,34 @@ class CLIChat:
         """
         Handle user message.
 
+        Includes implicit feedback detection for the previous episode.
+
         Args:
             message: User message text
         """
+        # Get current intent for rephrase detection (before processing)
+        current_intent = None
+        if hasattr(self.agent, '_pipeline') and self.agent._pipeline:
+            # Intent will be detected during processing, for now use None
+            # We'll update after response
+            pass
+
+        # Update implicit feedback for PREVIOUS episode
+        self._update_implicit_feedback_for_previous(message, current_intent)
+
+        # Process the message
         response = self.agent.chat(message, self.user_id)
         self._print_response(response)
+
+        # Track the current episode ID for next turn's implicit feedback
+        if self._episode_logger and self._episode_store:
+            recent = self._episode_store.get_recent(1)
+            if recent:
+                self._last_episode_id = recent[0].id
+                # Track intent for rephrase detection
+                self._track_intent_for_rephrase_detection(
+                    recent[0].intent_primary.value if recent[0].intent_primary else None
+                )
 
 
 # ========================================================================

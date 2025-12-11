@@ -1004,3 +1004,146 @@ class TestFeedbackPersistence:
         assert episode.response_text == "Selam!"
         assert episode.risk_level == RiskLevel.LOW
         assert episode.approval_status == ApprovalStatus.APPROVED
+
+
+# =========================================================================
+# 10. Construction ID Determinism Tests (3 tests)
+# =========================================================================
+
+class TestConstructionIDDeterminism:
+    """Test that construction IDs are deterministic and stable."""
+
+    def test_construction_id_is_deterministic(self):
+        """Test that same mvcs_name always produces same ID."""
+        from core.language.construction.types import generate_deterministic_construction_id
+
+        # Generate same ID twice
+        id1 = generate_deterministic_construction_id("greet_simple")
+        id2 = generate_deterministic_construction_id("greet_simple")
+
+        assert id1 == id2
+        assert id1 == "cons_greet_simple"
+
+    def test_mvcs_constructions_have_deterministic_ids(self):
+        """Test MVCS constructions have deterministic, mvcs_name-based IDs."""
+        from core.language.construction.mvcs import MVCSLoader
+
+        # Load twice
+        loader1 = MVCSLoader()
+        constructions1 = loader1.load_all()
+
+        loader2 = MVCSLoader()
+        constructions2 = loader2.load_all()
+
+        # Same constructions should have same IDs
+        for c1 in constructions1:
+            c1_name = c1.extra_data.get("mvcs_name")
+            if c1_name:
+                # Find matching construction in second load
+                matching = [c2 for c2 in constructions2 if c2.extra_data.get("mvcs_name") == c1_name]
+                assert len(matching) == 1, f"Should find exactly one match for {c1_name}"
+                assert c1.id == matching[0].id, f"IDs should match for {c1_name}"
+
+    def test_construction_id_format(self):
+        """Test construction ID format is cons_{mvcs_name}."""
+        from core.language.construction.mvcs import MVCSLoader
+
+        loader = MVCSLoader()
+        constructions = loader.load_all()
+
+        for construction in constructions:
+            mvcs_name = construction.extra_data.get("mvcs_name")
+            if mvcs_name:
+                expected_id = f"cons_{mvcs_name}"
+                assert construction.id == expected_id, f"ID should be {expected_id}, got {construction.id}"
+
+
+# =========================================================================
+# 11. ImplicitFeedback Wiring Tests (4 tests)
+# =========================================================================
+
+class TestImplicitFeedbackWiring:
+    """Test implicit feedback detection and persistence."""
+
+    @pytest.fixture
+    def temp_store(self, tmp_path):
+        """Create temporary episode store."""
+        store_path = tmp_path / "implicit_feedback_episodes.jsonl"
+        return JSONLEpisodeStore(str(store_path))
+
+    @pytest.fixture
+    def logger(self, temp_store):
+        """Create episode logger with temp store."""
+        return EpisodeLogger(temp_store, "test_implicit_session")
+
+    def test_implicit_feedback_user_thanked(self, logger):
+        """Test user_thanked implicit feedback is detected and persisted."""
+        # Create an episode
+        episode_id = logger.start_episode("Merhaba", "merhaba")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.update_output("Selam!")
+        logger.finalize_episode(processing_time_ms=100)
+
+        # Add implicit feedback with user_thanked
+        implicit = ImplicitFeedback(user_thanked=True)
+        success = logger.add_feedback(episode_id, implicit=implicit)
+        assert success is True
+
+        # Verify persistence
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_implicit is not None
+        assert episode.feedback_implicit.user_thanked is True
+
+    def test_implicit_feedback_user_rephrased(self, logger):
+        """Test user_rephrased implicit feedback is detected and persisted."""
+        # Create an episode
+        episode_id = logger.start_episode("Merhaba", "merhaba")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.update_output("Selam!")
+        logger.finalize_episode(processing_time_ms=100)
+
+        # Add implicit feedback with user_rephrased
+        implicit = ImplicitFeedback(user_rephrased=True)
+        success = logger.add_feedback(episode_id, implicit=implicit)
+        assert success is True
+
+        # Verify persistence
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_implicit is not None
+        assert episode.feedback_implicit.user_rephrased is True
+
+    def test_implicit_feedback_conversation_continued(self, logger):
+        """Test conversation_continued implicit feedback is detected and persisted."""
+        # Create an episode
+        episode_id = logger.start_episode("Test", "test")
+        logger.update_intent(IntentCategory.GREETING, confidence=0.9)
+        logger.update_output("Hello!")
+        logger.finalize_episode(processing_time_ms=100)
+
+        # Add implicit feedback with conversation_continued
+        implicit = ImplicitFeedback(conversation_continued=True)
+        success = logger.add_feedback(episode_id, implicit=implicit)
+        assert success is True
+
+        # Verify persistence
+        episode = logger.store.get_by_id(episode_id)
+        assert episode.feedback_implicit is not None
+        assert episode.feedback_implicit.conversation_continued is True
+
+    def test_implicit_feedback_to_dict(self):
+        """Test ImplicitFeedback.to_dict() method."""
+        implicit = ImplicitFeedback(
+            user_thanked=True,
+            conversation_continued=True,
+            user_rephrased=False,
+            user_complained=False,
+            session_ended_abruptly=False
+        )
+
+        data = implicit.to_dict()
+
+        assert data["user_thanked"] is True
+        assert data["conversation_continued"] is True
+        assert data["user_rephrased"] is False
+        assert data["user_complained"] is False
+        assert data["session_ended_abruptly"] is False
