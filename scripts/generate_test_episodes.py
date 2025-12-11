@@ -27,12 +27,90 @@ import argparse
 import sys
 import random
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+
+# ============================================================================
+# Smart Feedback Calculation
+# ============================================================================
+
+def calculate_smart_feedback(
+    input_text: str,
+    output_text: str,
+    intent: str,
+    act: str
+) -> float:
+    """
+    Calculate feedback based on output quality, not just input category.
+
+    Args:
+        input_text: User input
+        output_text: Generated output
+        intent: Detected intent
+        act: Selected dialogue act
+
+    Returns:
+        Feedback score (-1.0 to 1.0)
+    """
+    base = 0.5  # Start neutral
+
+    # Length checks
+    if len(output_text) < 10:
+        base -= 0.2  # Too short
+    if len(output_text) > 500:
+        base -= 0.1  # Too long
+
+    # Empathy check for negative emotions
+    output_lower = output_text.lower()
+    if intent in ["express_negative", "complain"]:
+        if "anlıyorum" in output_lower or "anliyorum" in output_lower:
+            base += 0.3  # Good empathy
+        elif "üzgünüm" in output_lower or "uzgunum" in output_lower:
+            base += 0.2  # Some empathy
+
+    # Intent-Act alignment check
+    expected_acts = {
+        "greeting": ["greet"],
+        "farewell": ["close_conversation", "farewell"],
+        "thank": ["accept_thanks", "receive_thanks"],
+        "express_negative": ["empathize", "sympathize", "comfort"],
+        "express_positive": ["acknowledge_positive"],
+        "disagree": ["acknowledge", "clarify"],
+        "request_help": ["offer_help", "clarify"],
+        "ask_wellbeing": ["respond_wellbeing"],
+    }
+
+    if intent in expected_acts and act in expected_acts[intent]:
+        base += 0.2  # Good alignment
+    elif intent in expected_acts:
+        base -= 0.1  # Misalignment
+
+    # Repetition check (very basic)
+    words = output_text.split()
+    if len(words) > 3 and len(set(words)) < len(words) * 0.6:
+        base -= 0.15  # Too repetitive
+
+    return max(-1.0, min(1.0, base))
+
+
+def add_noise(feedback: float, noise_level: float = 0.15) -> float:
+    """
+    Add random noise to feedback score to simulate real user variability.
+
+    Args:
+        feedback: Original feedback score
+        noise_level: Maximum noise magnitude
+
+    Returns:
+        Noisy feedback score (-1.0 to 1.0)
+    """
+    noise = random.uniform(-noise_level, noise_level)
+    return max(-1.0, min(1.0, feedback + noise))
 
 
 # Test scenarios: (input, expected_act, feedback, variations)
@@ -77,18 +155,46 @@ TEST_SCENARIOS = {
     ],
 }
 
+# Edge case scenarios for testing robustness
+EDGE_CASES = [
+    {"input": "?", "category": "ambiguous", "feedback": 0.0},
+    {"input": "...", "category": "ambiguous", "feedback": 0.0},
+    {"input": "hmm", "category": "ambiguous", "feedback": 0.2},
+    {"input": "ok", "category": "acknowledge", "feedback": 0.5},
+    {"input": "İyiyim ama yorgunum", "category": "mixed_emotion", "feedback": 0.7},
+    {"input": "Fena değil", "category": "mixed_emotion", "feedback": 0.6},
+    {"input": "Eh işte", "category": "mixed_emotion", "feedback": 0.5},
+    {"input": "Sence?", "category": "open_question", "feedback": 0.3},
+    {"input": "Ne düşünüyorsun?", "category": "open_question", "feedback": 0.4},
+    {"input": "Hayır, öyle değil", "category": "disagree", "feedback": 0.8},
+    {"input": "Yanlış anladın", "category": "disagree", "feedback": 0.7},
+    {"input": "Çok yardımcı oldun (!)", "category": "sarcastic", "feedback": -0.3},
+    {"input": "Harika bir cevap... (değil)", "category": "sarcastic", "feedback": -0.5},
+    {"input": "a", "category": "too_short", "feedback": -0.2},
+    {"input": "naber naber naber", "category": "repetitive", "feedback": 0.3},
+]
+
 
 class EpisodeGenerator:
     """Automatic episode generator for testing."""
 
-    def __init__(self, verbose: bool = False):
+    def __init__(
+        self,
+        verbose: bool = False,
+        use_smart_feedback: bool = False,
+        noise_level: float = 0.0
+    ):
         """
         Initialize episode generator.
 
         Args:
             verbose: Print detailed progress
+            use_smart_feedback: Use output-based feedback calculation
+            noise_level: Noise level for feedback (0.0 = no noise)
         """
         self.verbose = verbose
+        self.use_smart_feedback = use_smart_feedback
+        self.noise_level = noise_level
         self.pipeline = None
         self.episode_logger = None
         self.session_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -141,7 +247,8 @@ class EpisodeGenerator:
         self,
         user_input: str,
         expected_act: str,
-        feedback: float
+        feedback: float,
+        intent: Optional[str] = None
     ) -> bool:
         """
         Generate a single episode for a scenario.
@@ -149,7 +256,8 @@ class EpisodeGenerator:
         Args:
             user_input: User message
             expected_act: Expected dialogue act
-            feedback: Explicit feedback (-1.0 to 1.0)
+            feedback: Base explicit feedback (-1.0 to 1.0)
+            intent: Known intent (for smart feedback)
 
         Returns:
             bool: Success status
@@ -166,9 +274,35 @@ class EpisodeGenerator:
             # Episode is automatically logged by pipeline
             self.episodes_generated += 1
 
+            # Calculate final feedback
+            final_feedback = feedback
+
+            if self.use_smart_feedback:
+                # Get actual act and intent from result
+                act = "unknown"
+                if result.act_selection and result.act_selection.primary_acts:
+                    act = result.act_selection.primary_acts[0].value
+
+                # Use intent from situation if available
+                detected_intent = intent or "unknown"
+                if result.situation and hasattr(result.situation, 'user_intent'):
+                    detected_intent = result.situation.user_intent
+
+                # Calculate smart feedback based on output quality
+                final_feedback = calculate_smart_feedback(
+                    user_input,
+                    result.output,
+                    detected_intent,
+                    act
+                )
+
+            # Add noise if enabled
+            if self.noise_level > 0:
+                final_feedback = add_noise(final_feedback, self.noise_level)
+
             # Add explicit feedback to the last episode
             if self.episode_logger:
-                success = self.episode_logger.add_feedback_to_last(explicit=feedback)
+                success = self.episode_logger.add_feedback_to_last(explicit=final_feedback)
                 if success:
                     self.feedback_added += 1
 
@@ -178,7 +312,14 @@ class EpisodeGenerator:
                 if result.act_selection and result.act_selection.primary_acts:
                     act = result.act_selection.primary_acts[0].value
                 constr = result.constructions_used[0].id if result.constructions_used else "none"
-                print(f"  ✓ '{user_input[:30]}...' -> {act} (constr: {constr}, fb: {feedback:+.1f})")
+
+                feedback_str = f"fb: {final_feedback:+.1f}"
+                if self.use_smart_feedback:
+                    feedback_str += " (smart)"
+                if self.noise_level > 0:
+                    feedback_str += f" (noise: ±{self.noise_level:.2f})"
+
+                print(f"  ✓ '{user_input[:30]}...' -> {act} (constr: {constr}, {feedback_str})")
 
             return True
 
@@ -190,7 +331,8 @@ class EpisodeGenerator:
     def generate_episodes(
         self,
         total_count: int,
-        scenario_filter: List[str] = None
+        scenario_filter: List[str] = None,
+        include_edge_cases: bool = False
     ) -> Dict[str, int]:
         """
         Generate multiple episodes across scenarios.
@@ -198,6 +340,7 @@ class EpisodeGenerator:
         Args:
             total_count: Total number of episodes to generate
             scenario_filter: List of scenario names to include (None = all)
+            include_edge_cases: Include edge case scenarios
 
         Returns:
             Dict with generation statistics
@@ -218,32 +361,51 @@ class EpisodeGenerator:
         scenario_list = []
         for category, items in scenarios.items():
             for base_input, expected_act, feedback, variations in items:
-                scenario_list.append((category, expected_act, feedback, variations))
+                scenario_list.append((category, expected_act, feedback, variations, category))
 
         if not scenario_list:
             print("Error: No scenario items found")
             return {"generated": 0, "failed": 0}
 
+        scenario_sources = [', '.join(scenarios.keys())]
+        if include_edge_cases:
+            scenario_sources.append(f"{len(EDGE_CASES)} edge cases")
+
         print(f"\nGenerating {total_count} episodes from {len(scenario_list)} scenario templates...")
-        print(f"Scenarios: {', '.join(scenarios.keys())}")
+        print(f"Sources: {', '.join(scenario_sources)}")
         print()
 
         success_count = 0
         fail_count = 0
+        edge_case_count = 0
 
         # Generate episodes
         for i in range(total_count):
-            # Pick random scenario
-            category, expected_act, feedback, variations = random.choice(scenario_list)
+            # Decide: normal scenario or edge case?
+            use_edge_case = include_edge_cases and random.random() < 0.2  # 20% edge cases
 
-            # Pick random variation
-            user_input = random.choice(variations)
+            if use_edge_case and EDGE_CASES:
+                # Pick random edge case
+                edge = random.choice(EDGE_CASES)
+                user_input = edge["input"]
+                category = edge["category"]
+                feedback = edge["feedback"]
+                expected_act = "unknown"  # Edge cases don't have expected acts
+                intent = category  # Use category as intent hint
+                edge_case_count += 1
+
+                if self.verbose:
+                    print(f"[{i+1}/{total_count}] edge_case ({category}):")
+            else:
+                # Pick random normal scenario
+                category, expected_act, feedback, variations, intent = random.choice(scenario_list)
+                user_input = random.choice(variations)
+
+                if self.verbose:
+                    print(f"[{i+1}/{total_count}] {category}:")
 
             # Generate episode
-            if self.verbose:
-                print(f"[{i+1}/{total_count}] {category}:")
-
-            success = self.generate_scenario(user_input, expected_act, feedback)
+            success = self.generate_scenario(user_input, expected_act, feedback, intent)
 
             if success:
                 success_count += 1
@@ -258,6 +420,7 @@ class EpisodeGenerator:
             "generated": success_count,
             "failed": fail_count,
             "feedback_added": self.feedback_added,
+            "edge_cases": edge_case_count,
         }
 
     def print_summary(self, stats: Dict[str, int]) -> None:
@@ -274,7 +437,13 @@ class EpisodeGenerator:
         print(f"Episodes generated: {stats['generated']}")
         print(f"Episodes failed: {stats['failed']}")
         print(f"Feedback added: {stats['feedback_added']}")
+        if stats.get('edge_cases', 0) > 0:
+            print(f"Edge cases included: {stats['edge_cases']}")
         print(f"Success rate: {stats['generated']/(stats['generated']+stats['failed'])*100:.1f}%")
+        if self.use_smart_feedback:
+            print(f"Smart feedback: ENABLED (output-based)")
+        if self.noise_level > 0:
+            print(f"Noise level: ±{self.noise_level:.2f}")
         print()
 
     def run_aggregation(self) -> None:
@@ -372,8 +541,29 @@ def main():
         action="store_true",
         help="Skip feedback aggregation step"
     )
+    parser.add_argument(
+        "--smart-feedback",
+        action="store_true",
+        help="Use output-based smart feedback calculation"
+    )
+    parser.add_argument(
+        "--noise",
+        type=float,
+        default=0.0,
+        help="Add random noise to feedback (0.0-1.0, default: 0.0)"
+    )
+    parser.add_argument(
+        "--edge-cases",
+        action="store_true",
+        help="Include edge case scenarios (ambiguous, mixed, sarcastic, etc.)"
+    )
 
     args = parser.parse_args()
+
+    # Validate noise level
+    if args.noise < 0.0 or args.noise > 1.0:
+        print(f"Error: Noise level must be between 0.0 and 1.0 (got {args.noise})")
+        sys.exit(1)
 
     # Parse scenario filter
     scenario_filter = None
@@ -387,7 +577,11 @@ def main():
             sys.exit(1)
 
     # Create generator
-    generator = EpisodeGenerator(verbose=args.verbose)
+    generator = EpisodeGenerator(
+        verbose=args.verbose,
+        use_smart_feedback=args.smart_feedback,
+        noise_level=args.noise
+    )
 
     # Setup
     if not generator.setup():
@@ -395,7 +589,11 @@ def main():
         sys.exit(1)
 
     # Generate episodes
-    stats = generator.generate_episodes(args.count, scenario_filter)
+    stats = generator.generate_episodes(
+        args.count,
+        scenario_filter,
+        include_edge_cases=args.edge_cases
+    )
 
     # Print summary
     generator.print_summary(stats)
