@@ -98,6 +98,7 @@ from .episode_types import (
 )
 from .episode_store import EpisodeStore, JSONLEpisodeStore
 from .episode_logger import EpisodeLogger
+from .pattern_analyzer import PatternAnalyzer, create_analyzer
 
 
 __all__ = [
@@ -150,4 +151,7 @@ __all__ = [
     "EpisodeStore",
     "JSONLEpisodeStore",
     "EpisodeLogger",
+    # Pattern Analyzer
+    "PatternAnalyzer",
+    "create_analyzer",
 ]

@@ -36,6 +36,7 @@ try:
     from core.learning import (
         EpisodeLogger,
         JSONLEpisodeStore,
+        PatternAnalyzer,
     )
     EPISODE_LOGGING_AVAILABLE = True
 except ImportError:
@@ -66,6 +67,7 @@ class CLIChat:
         /good, /+ - Pozitif feedback
         /bad, /-  - Negatif feedback
         /learned  - Ogrenilen pattern sayisi
+        /analyze  - Episode pattern analizi
         /pipeline - Pipeline modu (on/off/status)
         /pipeinfo - Son pipeline isleminin detaylari
     """
@@ -291,6 +293,8 @@ class CLIChat:
             self._cmd_bad(args)
         elif cmd in ["/learned", "/patterns"]:
             self._cmd_learned()
+        elif cmd in ["/analyze", "/analysis", "/report"]:
+            self._cmd_analyze()
         elif cmd in ["/pipeline", "/pipe", "/p"]:
             self._cmd_pipeline(args)
         elif cmd in ["/pipeinfo", "/pi", "/pdebug"]:
@@ -311,6 +315,7 @@ class CLIChat:
         print("/good, /+     - Pozitif feedback (son cevap icin)")
         print("/bad, /-      - Negatif feedback (son cevap icin)")
         print("/learned      - Ogrenilen pattern sayisi")
+        print("/analyze      - Episode pattern analizi")
         print("")
         print("--- Pipeline (Faz 4) ---")
         print("/pipeline on  - Pipeline modunu ac")
@@ -498,6 +503,26 @@ class CLIChat:
                 total_feedback = feedback_stats.get('total_feedback', 0)
                 avg_score = feedback_stats.get('average_score', 0)
                 print(f"[Toplam feedback: {total_feedback}, Ort. skor: {avg_score:.2f}]")
+
+    def _cmd_analyze(self) -> None:
+        """Run pattern analysis on episodes."""
+        if not EPISODE_LOGGING_AVAILABLE:
+            print("\n[Episode logging ozelligi mevcut degil]")
+            return
+
+        if not self._episode_store:
+            print("\n[Episode store baslatilamadi]")
+            return
+
+        try:
+            analyzer = PatternAnalyzer(self._episode_store)
+            report = analyzer.generate_report()
+            print("\n" + report)
+        except Exception as e:
+            print(f"\n[Analiz hatasi: {e}]")
+            if self.show_debug:
+                import traceback
+                traceback.print_exc()
 
     def _cmd_pipeline(self, args: str = "") -> None:
         """
