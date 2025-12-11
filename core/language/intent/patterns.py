@@ -499,6 +499,25 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "degil",
         "yanlis",
         "yanlış biliyorsun",
+
+        # Düzeltme/İtiraz
+        "oyle degil",
+        "boyle degil",
+        "yanlis anladın",
+        "yanlis anladin",
+        "yanlış anladin",
+        "yanlış anladın",
+        "ben oyle demedim",
+        "ben boyle demedim",
+        "anlamadın",
+        "anlamadin",
+        "tam tersine",
+        "aksine",
+        "dogru degil",
+        "doğru değil",
+        "hatali",
+        "hatalisin",
+        "hatalisiniz",
     ],
 
     # =========================================================================

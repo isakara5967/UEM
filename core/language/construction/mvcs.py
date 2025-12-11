@@ -54,6 +54,7 @@ class MVCSCategory(str, Enum):
     LIGHT_CHITCHAT = "light_chitchat"
     ACKNOWLEDGE_POSITIVE = "acknowledge_positive"
     CLOSE_CONVERSATION = "close_conversation"  # Vedalaşma, kapanış
+    ACKNOWLEDGE_DISAGREEMENT = "acknowledge_disagreement"  # İtiraz/yanlış anlama yanıtı
 
 
 @dataclass
@@ -152,6 +153,9 @@ class MVCSLoader:
         # 12. CLOSE_CONVERSATION - Vedalaşma, kapanış
         constructions.extend(self._create_close_conversation_constructions())
 
+        # 13. ACKNOWLEDGE_DISAGREEMENT - İtiraz/yanlış anlama yanıtı
+        constructions.extend(self._create_acknowledge_disagreement_constructions())
+
         self._all_constructions = constructions
         logger.info(f"MVCS loaded: {len(constructions)} constructions")
 
@@ -196,6 +200,8 @@ class MVCSLoader:
             constructions = self._create_acknowledge_positive_constructions()
         elif category == MVCSCategory.CLOSE_CONVERSATION:
             constructions = self._create_close_conversation_constructions()
+        elif category == MVCSCategory.ACKNOWLEDGE_DISAGREEMENT:
+            constructions = self._create_acknowledge_disagreement_constructions()
         else:
             constructions = []
 
@@ -943,6 +949,69 @@ class MVCSLoader:
                 effects=["farewell", "availability_expressed"],
                 tone="supportive",
                 formality=0.4,
+            ))
+
+        return constructions
+
+    def _create_acknowledge_disagreement_constructions(self) -> List[Construction]:
+        """ACKNOWLEDGE_DISAGREEMENT - İtiraz/yanlış anlama yanıtı construction'ları oluştur."""
+        constructions = []
+
+        # 1. Özür dile, düzelt
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="disagree_apologize_clarify",
+            category=MVCSCategory.ACKNOWLEDGE_DISAGREEMENT,
+            template="Ozur dilerim, yanlis anladim. Aciklar misiniz?",
+            dialogue_act="acknowledge",
+            effects=["apology", "clarification_request"],
+            tone="apologetic",
+            formality=0.6,
+        ))
+
+        # 2. Anlayışlı kabul et
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="disagree_understand",
+            category=MVCSCategory.ACKNOWLEDGE_DISAGREEMENT,
+            template="Anliyorum, fikirleriniz farkli. Daha fazla anlatabilir misiniz?",
+            dialogue_act="acknowledge",
+            effects=["understanding", "invitation_to_elaborate"],
+            tone="understanding",
+            formality=0.5,
+        ))
+
+        # 3. Basit kabul et
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="disagree_acknowledge_simple",
+            category=MVCSCategory.ACKNOWLEDGE_DISAGREEMENT,
+            template="Tamam, anladim. Ne demek istediginizi aciklar misiniz?",
+            dialogue_act="clarify",
+            effects=["acknowledged", "clarification_request"],
+            tone="neutral",
+            formality=0.5,
+        ))
+
+        # 4. Düzeltmeyi kabul et
+        if self.config.include_variations:
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="disagree_accept_correction",
+                category=MVCSCategory.ACKNOWLEDGE_DISAGREEMENT,
+                template="Haklisiniz, benim hatam. Duzelttiginiz icin tesekkurler.",
+                dialogue_act="acknowledge",
+                effects=["correction_accepted", "gratitude"],
+                tone="humble",
+                formality=0.6,
+            ))
+
+        # 5. Yeniden dinle
+        if self.config.include_variations:
+            constructions.append(self._create_mvcs_construction(
+                mvcs_name="disagree_listen_again",
+                category=MVCSCategory.ACKNOWLEDGE_DISAGREEMENT,
+                template="Anladim, sizi dinliyorum. Devam edin lutfen.",
+                dialogue_act="acknowledge",
+                effects=["active_listening", "encouragement"],
+                tone="attentive",
+                formality=0.5,
             ))
 
         return constructions
