@@ -608,6 +608,61 @@ class MVCSLoader:
                 formality=0.4,
             ))
 
+        # 5. Üzücü destek
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_sad_support",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Bunu duymak uzucu, yanindayim.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "support_offered"],
+            tone="supportive",
+            formality=0.4,
+        ))
+
+        # 6. Yalnız değilsin
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_not_alone",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Zor bir donemden geciyor olabilirsiniz, yalniz degilsiniz.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "companionship_expressed"],
+            tone="supportive",
+            formality=0.5,
+        ))
+
+        # 7. Birlikte açma teklifi
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_explore",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Istersen birlikte biraz acmayi deneyebiliriz.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "exploration_offered"],
+            tone="gentle",
+            formality=0.4,
+        ))
+
+        # 8. Hisleri doğrulama
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_validate",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Boyle hissetmen cok normal.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "feeling_validated"],
+            tone="validating",
+            formality=0.3,
+        ))
+
+        # 9. Dinliyorum ifadesi
+        constructions.append(self._create_mvcs_construction(
+            mvcs_name="empathy_here_for_you",
+            category=MVCSCategory.EMPATHIZE_BASIC,
+            template="Buradayim, dinliyorum.",
+            dialogue_act="empathize",
+            effects=["empathy_expressed", "active_listening"],
+            tone="attentive",
+            formality=0.3,
+        ))
+
         return constructions
 
     def _create_clarify_constructions(self) -> List[Construction]:

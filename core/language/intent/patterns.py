@@ -265,6 +265,13 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "psikolojim bozuk",
         "ici bozuktum",
         "kafa bozuktum",
+
+        # Karışıklık/Belirsizlik ifadeleri
+        "ne yapacagimi bilmiyorum",
+        "cok karisik her sey",
+        "kafam karisik",
+        "bilmiyorum ne yapacagim",
+        "karisik her sey",
     ],
 
     # =========================================================================
@@ -344,6 +351,14 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "detayli anlat",
         "daha fazla bilgi",
         "ek bilgi",
+
+        # Kısa soru formları
+        "ne",
+        "ney",
+        "nee",
+        "?",
+        "??",
+        "???",
     ],
 
     # =========================================================================
@@ -453,6 +468,8 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "okey",
         "oky",
         "okii",
+        "tmm",
+        "he",
 
         # Informal
         "aynen",
@@ -499,6 +516,7 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "degil",
         "yanlis",
         "yanlış biliyorsun",
+        "yo",
 
         # Düzeltme/İtiraz
         "oyle degil",
@@ -558,6 +576,12 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "bi daha soyle",
         "haa",
         "haaa ne",
+
+        # Belirsizlik ifadeleri
+        "bilmiyorum",
+        "bilmem",
+        "emin degilim",
+        "emin değilim",
     ],
 
     # =========================================================================
@@ -677,6 +701,13 @@ INTENT_PATTERNS: Dict[IntentCategory, List[str]] = {
         "what are you doing",
         "let's chat",
         "tell me something",
+
+        # Düşünme sesleri / Kısa tepkiler
+        "hmm",
+        "hm",
+        "hımm",
+        "hmmm",
+        "hmmmm",
     ],
 }
 
@@ -711,6 +742,22 @@ PATTERN_WEIGHTS: Dict[str, float] = {
     "yok": 0.6,
     "evet": 0.7,
     "hayir": 0.7,
+
+    # Yeni düşük güven pattern'ler
+    "hmm": 0.5,
+    "hm": 0.5,
+    "hımm": 0.5,
+    "?": 0.5,
+    "??": 0.5,
+    "???": 0.5,
+    "ne": 0.6,
+    "ney": 0.6,
+    "nee": 0.6,
+    "yo": 0.6,
+    "he": 0.6,
+    "tmm": 0.6,
+    "bilmiyorum": 0.7,
+    "bilmem": 0.6,
 }
 
 

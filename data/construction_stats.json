@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2025-12-11T10:26:11.765565",
+    "count": 9
+  },
+  "stats": {
+    "cons_greet_casual": {
+      "construction_id": "cons_greet_casual",
+      "total_uses": 62,
+      "explicit_pos": 58,
+      "explicit_neg": 0,
+      "implicit_pos": 1,
+      "implicit_neg": 0,
+      "cached_score": 0.9834162520729685,
+      "last_updated": "2025-12-11T10:26:11.765076"
+    },
+    "cons_thanks_simple": {
+      "construction_id": "cons_thanks_simple",
+      "total_uses": 53,
+      "explicit_pos": 52,
+      "explicit_neg": 0,
+      "implicit_pos": 3,
+      "implicit_neg": 0,
+      "cached_score": 0.9817850637522769,
+      "last_updated": "2025-12-11T10:26:11.765080"
+    },
+    "cons_self_intro_basic": {
+      "construction_id": "cons_self_intro_basic",
+      "total_uses": 23,
+      "explicit_pos": 22,
+      "explicit_neg": 1,
+      "implicit_pos": 0,
+      "implicit_neg": 0,
+      "cached_score": 0.92,
+      "last_updated": "2025-12-11T10:26:11.765081"
+    },
+    "cons_empathy_understand": {
+      "construction_id": "cons_empathy_understand",
+      "total_uses": 40,
+      "explicit_pos": 33,
+      "explicit_neg": 7,
+      "implicit_pos": 2,
+      "implicit_neg": 0,
+      "cached_score": 0.812206572769953,
+      "last_updated": "2025-12-11T10:26:11.765082"
+    },
+    "cons_positive_glad": {
+      "construction_id": "cons_positive_glad",
+      "total_uses": 25,
+      "explicit_pos": 22,
+      "explicit_neg": 3,
+      "implicit_pos": 0,
+      "implicit_neg": 0,
+      "cached_score": 0.8518518518518519,
+      "last_updated": "2025-12-11T10:26:11.765083"
+    },
+    "cons_wellbeing_good_reciprocal": {
+      "construction_id": "cons_wellbeing_good_reciprocal",
+      "total_uses": 5,
+      "explicit_pos": 5,
+      "explicit_neg": 0,
+      "implicit_pos": 0,
+      "implicit_neg": 0,
+      "cached_score": 0.8571428571428571,
+      "last_updated": "2025-12-11T10:26:11.765084"
+    },
+    "cons_wellbeing_okay": {
+      "construction_id": "cons_wellbeing_okay",
+      "total_uses": 19,
+      "explicit_pos": 18,
+      "explicit_neg": 0,
+      "implicit_pos": 0,
+      "implicit_neg": 0,
+      "cached_score": 0.95,
+      "last_updated": "2025-12-11T10:26:11.765084"
+    },
+    "cons_disagree_apologize_clarify": {
+      "construction_id": "cons_disagree_apologize_clarify",
+      "total_uses": 39,
+      "explicit_pos": 28,
+      "explicit_neg": 10,
+      "implicit_pos": 2,
+      "implicit_neg": 0,
+      "cached_score": 0.729064039408867,
+      "last_updated": "2025-12-11T10:26:11.765086"
+    },
+    "cons_disagree_acknowledge_simple": {
+      "construction_id": "cons_disagree_acknowledge_simple",
+      "total_uses": 4,
+      "explicit_pos": 4,
+      "explicit_neg": 0,
+      "implicit_pos": 0,
+      "implicit_neg": 0,
+      "cached_score": 0.8333333333333334,
+      "last_updated": "2025-12-11T10:26:11.765086"
+    }
+  }
+}
