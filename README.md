@@ -62,6 +62,62 @@ python tests/unit/test_trust.py
 python -m pytest tests/ -v
 ```
 
+### Testing & Development Tools
+
+#### Episode Generator (Faz 5)
+
+Generate test episodes for validating the feedback-driven construction re-ranking mechanism:
+
+```bash
+# Generate 50 test episodes with diverse scenarios
+python scripts/generate_test_episodes.py --count 50
+
+# Generate 100 episodes (verbose mode)
+python scripts/generate_test_episodes.py --count 100 --verbose
+
+# Generate episodes for specific scenarios only
+python scripts/generate_test_episodes.py --count 50 --scenarios greetings,thanks,empathy
+
+# Skip automatic feedback aggregation
+python scripts/generate_test_episodes.py --count 50 --no-aggregate
+```
+
+Available scenarios: `greetings`, `wellbeing`, `empathy`, `sympathy`, `thanks`, `help`, `inform`, `farewell`
+
+The script:
+- Uses ThoughtToSpeechPipeline to process messages
+- Automatically logs episodes to `data/episodes.jsonl`
+- Adds explicit feedback (+1.0 or -1.0) to each episode
+- Runs feedback aggregation to compute construction scores
+- Shows which constructions get re-ranking boosts
+
+#### Episode Analysis
+
+Analyze pattern evolution from episode logs:
+
+```bash
+# Generate analysis report
+python scripts/analyze_episodes.py
+
+# Custom output file
+python scripts/analyze_episodes.py --output my_report.md
+
+# Console only (no file)
+python scripts/analyze_episodes.py --no-file
+```
+
+#### Feedback Aggregation
+
+Manually aggregate feedback into construction stats:
+
+```bash
+# Aggregate feedback from episodes
+python scripts/aggregate_feedback.py
+
+# Verbose output with top constructions
+python scripts/aggregate_feedback.py -v --top 20
+```
+
 ## Architecture
 
 ```
