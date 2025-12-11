@@ -50,12 +50,13 @@ from ..conversation import ContextManager
 from .config import PipelineConfig
 from .self_critique import SelfCritique, CritiqueResult
 
-# Faz 5 - Episode Logging
+# Faz 5 - Episode Logging & Feedback-driven Learning
 import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.learning.episode_logger import EpisodeLogger
+    from core.learning.feedback_store import FeedbackStore
 
 
 def generate_pipeline_result_id() -> str:
@@ -169,7 +170,9 @@ class ThoughtToSpeechPipeline:
         construction_realizer: Optional[ConstructionRealizer] = None,
         self_critique: Optional[SelfCritique] = None,
         context_manager: Optional[ContextManager] = None,
-        episode_logger: Optional["EpisodeLogger"] = None
+        episode_logger: Optional["EpisodeLogger"] = None,
+        feedback_store: Optional["FeedbackStore"] = None,
+        load_feedback_store: bool = True
     ):
         """
         ThoughtToSpeechPipeline olustur.
@@ -187,6 +190,8 @@ class ThoughtToSpeechPipeline:
             self_critique: SelfCritique (opsiyonel)
             context_manager: ContextManager (opsiyonel, multi-turn context için)
             episode_logger: EpisodeLogger (opsiyonel, Faz 5 episode logging için)
+            feedback_store: FeedbackStore (opsiyonel, Faz 5 feedback-driven learning için)
+            load_feedback_store: Otomatik FeedbackStore yükle (default: True)
         """
         self.config = config or PipelineConfig()
 
@@ -196,6 +201,11 @@ class ThoughtToSpeechPipeline:
         self.message_planner = message_planner or MessagePlanner()
         self.risk_scorer = risk_scorer or RiskScorer()
         self.approver = approver or InternalApprover()
+
+        # Faz 5: FeedbackStore yükle (varsa)
+        self._feedback_store = feedback_store
+        if self._feedback_store is None and load_feedback_store:
+            self._feedback_store = self._try_load_feedback_store()
 
         # Construction bilesenleri
         if construction_grammar:
@@ -211,7 +221,8 @@ class ThoughtToSpeechPipeline:
             self.construction_selector = construction_selector
         else:
             self.construction_selector = ConstructionSelector(
-                self.construction_grammar
+                self.construction_grammar,
+                feedback_store=self._feedback_store
             )
 
         self.construction_realizer = (
@@ -231,6 +242,34 @@ class ThoughtToSpeechPipeline:
 
         # Episode logger (opsiyonel - Faz 5 için)
         self.episode_logger = episode_logger
+
+    def _try_load_feedback_store(self) -> Optional["FeedbackStore"]:
+        """
+        FeedbackStore'u otomatik yüklemeyi dene.
+
+        Dosya yoksa veya hata olursa None döner (graceful).
+
+        Returns:
+            FeedbackStore veya None
+        """
+        try:
+            from core.learning.feedback_store import FeedbackStore
+            from pathlib import Path
+
+            store_path = Path("data/construction_stats.json")
+            if store_path.exists():
+                store = FeedbackStore(store_path)
+                if len(store) > 0:
+                    import logging
+                    logging.getLogger(__name__).info(
+                        f"Pipeline: Loaded FeedbackStore with {len(store)} construction stats"
+                    )
+                    return store
+        except Exception:
+            # Graceful fail - feedback store opsiyonel
+            pass
+
+        return None
 
     def process(
         self,
@@ -743,4 +782,6 @@ class ThoughtToSpeechPipeline:
             "construction_count": len(
                 self.construction_grammar.get_all_constructions()
             ),
+            "feedback_store_loaded": self._feedback_store is not None,
+            "feedback_store_count": len(self._feedback_store) if self._feedback_store else 0,
         }

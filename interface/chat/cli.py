@@ -317,6 +317,8 @@ class CLIChat:
             self._cmd_pipeline(args)
         elif cmd in ["/pipeinfo", "/pi", "/pdebug"]:
             self._cmd_pipeinfo()
+        elif cmd in ["/aggregate", "/agg"]:
+            self._cmd_aggregate()
         else:
             self._cmd_unknown(cmd)
 
@@ -334,6 +336,7 @@ class CLIChat:
         print("/bad, /-      - Negatif feedback (son cevap icin)")
         print("/learned      - Ogrenilen pattern sayisi")
         print("/analyze      - Episode pattern analizi")
+        print("/aggregate    - Construction feedback istatistiklerini guncelle")
         print("")
         print("--- Pipeline (Faz 4) ---")
         print("/pipeline on  - Pipeline modunu ac")
@@ -652,6 +655,59 @@ class CLIChat:
             print(f"\n  Kullanilan construction: {debug['constructions']}")
 
         print("---------------------------")
+
+    def _cmd_aggregate(self) -> None:
+        """Episode'lardan construction stats hesapla."""
+        if not EPISODE_LOGGING_AVAILABLE:
+            print("\n[Episode logging ozelligi mevcut degil]")
+            return
+
+        if not self._episode_store:
+            print("\n[Episode store baslatilamadi]")
+            return
+
+        try:
+            from core.learning.feedback_aggregator import FeedbackAggregator
+            from core.learning.feedback_store import FeedbackStore
+
+            # Episode'ları yükle
+            episodes = self._episode_store.get_all()
+
+            if not episodes:
+                print("\n[Henuz episode verisi yok]")
+                return
+
+            # Aggregate
+            aggregator = FeedbackAggregator()
+            stats = aggregator.aggregate(episodes)
+
+            # Kaydet
+            feedback_store = FeedbackStore()
+            feedback_store.bulk_update(stats)
+
+            # Özet
+            summary = aggregator.get_summary(stats)
+            print(f"\n--- Aggregation Tamamlandi ---")
+            print(f"  Episode sayisi: {len(episodes)}")
+            print(f"  Construction sayisi: {len(stats)}")
+            print(f"  Toplam kullanim: {summary['total_uses']}")
+            print(f"  Explicit feedback: {summary['total_explicit_feedback']} (+{summary['explicit_positive']}/-{summary['explicit_negative']})")
+            print(f"  Implicit feedback: {summary['total_implicit_feedback']} (+{summary['implicit_positive']}/-{summary['implicit_negative']})")
+            print(f"  Ortalama skor: {summary['average_score']:.3f}")
+            print(f"  Kaydedildi: {feedback_store.path}")
+            print("------------------------------")
+
+            # Pipeline'a inject et (eğer aktifse)
+            if hasattr(self.agent, '_pipeline') and self.agent._pipeline:
+                if hasattr(self.agent._pipeline, 'construction_selector'):
+                    self.agent._pipeline.construction_selector.set_feedback_store(feedback_store)
+                    print("[Feedback store pipeline'a inject edildi]")
+
+        except Exception as e:
+            print(f"\n[Aggregation hatasi: {e}]")
+            if self.show_debug:
+                import traceback
+                traceback.print_exc()
 
     # ===================================================================
     # IMPLICIT FEEDBACK DETECTION

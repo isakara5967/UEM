@@ -100,6 +100,21 @@ from .episode_store import EpisodeStore, JSONLEpisodeStore
 from .episode_logger import EpisodeLogger
 from .pattern_analyzer import PatternAnalyzer, create_analyzer
 
+# Faz 5 - Feedback-Driven Learning
+from .feedback_stats import ConstructionStats
+from .feedback_store import FeedbackStore
+from .feedback_aggregator import FeedbackAggregator
+from .feedback_scorer import (
+    compute_wins_losses,
+    compute_feedback_mean,
+    compute_influence,
+    compute_adjustment,
+    compute_final_score,
+    explain_score,
+    is_score_significant,
+    get_feedback_summary,
+)
+
 
 __all__ = [
     # Enums
@@ -154,4 +169,16 @@ __all__ = [
     # Pattern Analyzer
     "PatternAnalyzer",
     "create_analyzer",
+    # Faz 5 - Feedback-Driven Learning
+    "ConstructionStats",
+    "FeedbackStore",
+    "FeedbackAggregator",
+    "compute_wins_losses",
+    "compute_feedback_mean",
+    "compute_influence",
+    "compute_adjustment",
+    "compute_final_score",
+    "explain_score",
+    "is_score_significant",
+    "get_feedback_summary",
 ]

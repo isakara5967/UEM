@@ -6,17 +6,26 @@ ConstructionSelector - MessagePlan → Uygun Construction seçimi.
 MessagePlan'daki DialogueAct'lere, tona ve kısıtlara göre
 en uygun Construction'ları seçer.
 
+Faz 5: Feedback-driven re-ranking desteği eklendi.
+FeedbackStore varsa, construction seçiminde feedback skorlarını kullanır.
+
 UEM v2 - Thought-to-Speech Pipeline bileşeni.
 """
 
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from .types import (
     Construction,
     ConstructionLevel,
 )
 from .grammar import ConstructionGrammar
+
+if TYPE_CHECKING:
+    from core.learning.feedback_store import FeedbackStore
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,6 +41,7 @@ class ConstructionScore:
         constraint_score: Kısıt uyum skoru
         confidence_score: Construction güven skoru
         reasons: Skor gerekçeleri
+        feedback_metadata: Feedback re-ranking metadata (Faz 5)
     """
     construction: Construction
     total_score: float
@@ -40,6 +50,7 @@ class ConstructionScore:
     constraint_score: float = 0.0
     confidence_score: float = 0.0
     reasons: List[str] = field(default_factory=list)
+    feedback_metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -108,7 +119,8 @@ class ConstructionSelector:
     def __init__(
         self,
         grammar: ConstructionGrammar,
-        config: Optional[ConstructionSelectorConfig] = None
+        config: Optional[ConstructionSelectorConfig] = None,
+        feedback_store: Optional["FeedbackStore"] = None
     ):
         """
         ConstructionSelector oluştur.
@@ -116,15 +128,20 @@ class ConstructionSelector:
         Args:
             grammar: Construction grammar
             config: Selector konfigürasyonu
+            feedback_store: FeedbackStore for re-ranking (Faz 5, opsiyonel)
         """
         self.grammar = grammar
         self.config = config or ConstructionSelectorConfig()
+        self.feedback_store = feedback_store
 
         # Tone mapping
         self._tone_map = self._build_tone_map()
 
         # Intent → MVCS Category mapping
         self._intent_mvcs_map = self._build_intent_mvcs_map()
+
+        if feedback_store:
+            logger.info(f"ConstructionSelector: Feedback re-ranking enabled with {len(feedback_store)} construction stats")
 
     def select(
         self,
@@ -177,6 +194,9 @@ class ConstructionSelector:
                 unique_selected.append(score)
 
         unique_selected.sort(key=lambda s: s.total_score, reverse=True)
+
+        # Faz 5: Feedback re-ranking uygula
+        unique_selected = self._apply_feedback_rerank(unique_selected)
 
         # Level counts
         level_counts = {}
@@ -491,3 +511,82 @@ class ConstructionSelector:
             return True
 
         return False
+
+    def _apply_feedback_rerank(
+        self,
+        candidates: List[ConstructionScore]
+    ) -> List[ConstructionScore]:
+        """
+        Feedback skorlarına göre yeniden sırala.
+
+        Faz 5: Construction seçiminde feedback-driven learning.
+        Her construction için feedback stats varsa, base score'u adjust eder.
+
+        Args:
+            candidates: Sıralı ConstructionScore listesi
+
+        Returns:
+            Feedback-adjusted ve yeniden sıralanmış liste
+        """
+        if not self.feedback_store:
+            return candidates
+
+        if not candidates:
+            return candidates
+
+        # Lazy import to avoid circular dependency
+        from core.learning.feedback_scorer import compute_final_score
+
+        for candidate in candidates:
+            stats = self.feedback_store.get_stats(candidate.construction.id)
+
+            if stats:
+                base_score = candidate.total_score
+                final_score, metadata = compute_final_score(base_score, stats)
+
+                # Score'u güncelle
+                candidate.total_score = final_score
+
+                # Metadata'yı kaydet (açıklanabilirlik için)
+                candidate.feedback_metadata = metadata
+
+                # Reason ekle
+                adjustment = metadata.get("adjustment", 1.0)
+                if adjustment > 1.05:
+                    candidate.reasons.append(
+                        f"Feedback boost: {adjustment:.2f}x (mean={metadata['feedback_mean']:.2f})"
+                    )
+                elif adjustment < 0.95:
+                    candidate.reasons.append(
+                        f"Feedback penalty: {adjustment:.2f}x (mean={metadata['feedback_mean']:.2f})"
+                    )
+
+                logger.debug(
+                    f"Feedback rerank: {candidate.construction.id} "
+                    f"base={base_score:.3f} → final={final_score:.3f} "
+                    f"(adj={adjustment:.3f})"
+                )
+            else:
+                # Stats yoksa base_score kalsın
+                candidate.feedback_metadata = {
+                    "feedback_mean": 0.5,
+                    "adjustment": 1.0,
+                    "base_score": candidate.total_score,
+                    "final_score": candidate.total_score,
+                    "total_uses": 0,
+                }
+
+        # Yeniden sırala
+        candidates.sort(key=lambda x: x.total_score, reverse=True)
+
+        return candidates
+
+    def set_feedback_store(self, feedback_store: "FeedbackStore") -> None:
+        """
+        FeedbackStore'u dinamik olarak ayarla.
+
+        Args:
+            feedback_store: FeedbackStore instance
+        """
+        self.feedback_store = feedback_store
+        logger.info(f"ConstructionSelector: Feedback store updated ({len(feedback_store)} stats)")
